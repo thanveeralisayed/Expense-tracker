@@ -7,6 +7,7 @@ import '../../../core/database/database.dart';
 import '../../../core/providers/database_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../accounts/presentation/create_account_dialog.dart';
 
 class SplitItemData {
   final TextEditingController noteController;
@@ -183,9 +184,10 @@ class _SplitTransactionScreenState extends ConsumerState<SplitTransactionScreen>
       if (accounts.isNotEmpty) {
         _selectedAccountId = accounts.first.id;
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please create an account first.')),
-        );
+        final created = await CreateAccountDialog.show(context);
+        if (created != null && mounted) {
+          setState(() => _selectedAccountId = created.id);
+        }
         return;
       }
     }
@@ -287,23 +289,51 @@ class _SplitTransactionScreenState extends ConsumerState<SplitTransactionScreen>
                         const Icon(Icons.account_balance_wallet_outlined, size: 20),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: DropdownButtonFormField<int>(
-                            value: _selectedAccountId,
-                            decoration: InputDecoration(
-                              labelText: 'Account',
-                              isDense: true,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                            ),
-                            items: accounts.map((acc) {
-                              return DropdownMenuItem<int>(
-                                value: acc.id,
-                                child: Text(acc.label),
-                              );
-                            }).toList(),
-                            onChanged: (val) => setState(() => _selectedAccountId = val),
-                          ),
+                          child: accounts.isEmpty
+                              ? OutlinedButton.icon(
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                  onPressed: () async {
+                                    final created = await CreateAccountDialog.show(context);
+                                    if (created != null && mounted) {
+                                      setState(() => _selectedAccountId = created.id);
+                                    }
+                                  },
+                                  icon: const Icon(Icons.add_rounded, size: 18),
+                                  label: const Text('Create Account'),
+                                )
+                              : DropdownButtonFormField<int>(
+                                  value: _selectedAccountId,
+                                  decoration: InputDecoration(
+                                    labelText: 'Account',
+                                    isDense: true,
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                  items: accounts.map((acc) {
+                                    return DropdownMenuItem<int>(
+                                      value: acc.id,
+                                      child: Text(acc.label),
+                                    );
+                                  }).toList(),
+                                  onChanged: (val) => setState(() => _selectedAccountId = val),
+                                ),
                         ),
+                        if (accounts.isNotEmpty) ...[
+                          const SizedBox(width: 6),
+                          IconButton(
+                            icon: const Icon(Icons.add_circle_outline_rounded, size: 22, color: AppColors.primary),
+                            tooltip: 'New Account',
+                            onPressed: () async {
+                              final created = await CreateAccountDialog.show(context);
+                              if (created != null && mounted) {
+                                setState(() => _selectedAccountId = created.id);
+                              }
+                            },
+                          ),
+                        ],
                       ],
                     ),
                     const SizedBox(height: 12),

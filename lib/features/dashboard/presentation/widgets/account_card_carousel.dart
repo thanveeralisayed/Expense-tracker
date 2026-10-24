@@ -5,6 +5,8 @@ import '../../../../core/providers/database_provider.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/currency_formatter.dart';
 
+import '../../../accounts/presentation/create_account_dialog.dart';
+
 class AccountCardCarousel extends ConsumerWidget {
   const AccountCardCarousel({super.key});
 
@@ -17,14 +19,41 @@ class AccountCardCarousel extends ConsumerWidget {
 
     return accountsAsync.when(
       data: (accounts) {
-        if (accounts.isEmpty) return const SizedBox.shrink();
+        if (accounts.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: InkWell(
+              onTap: () => CreateAccountDialog.show(context),
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.08),
+                  border: Border.all(color: AppColors.primary.withOpacity(0.3), width: 1.5),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.add_circle_outline_rounded, color: AppColors.primary, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      '+ Create Your First Account (e.g. Cash, Bank)',
+                      style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.primary, fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
 
         return SizedBox(
           height: 94,
           child: ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             scrollDirection: Axis.horizontal,
-            itemCount: accounts.length + 1, // +1 for "All Accounts"
+            itemCount: accounts.length + 2, // +1 for "All Accounts", +1 for "+ Add Account"
             separatorBuilder: (context, _) => const SizedBox(width: 10),
             itemBuilder: (context, index) {
               if (index == 0) {
@@ -33,6 +62,13 @@ class AccountCardCarousel extends ConsumerWidget {
                 return _AllAccountsChip(
                   isSelected: isSelected,
                   onTap: () => ref.read(selectedAccountIdProvider.notifier).state = null,
+                );
+              }
+
+              if (index == accounts.length + 1) {
+                // "+ Add Account" card
+                return _AddAccountChip(
+                  onTap: () => CreateAccountDialog.show(context),
                 );
               }
 
@@ -49,6 +85,9 @@ class AccountCardCarousel extends ConsumerWidget {
                 onTap: () {
                   ref.read(selectedAccountIdProvider.notifier).state =
                       isSelected ? null : account.id;
+                },
+                onLongPress: () {
+                  CreateAccountDialog.show(context, initialAccount: account);
                 },
               );
             },
@@ -128,6 +167,7 @@ class _AccountItemCard extends StatelessWidget {
   final bool isSelected;
   final int balance;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   const _AccountItemCard({
     super.key,
@@ -136,6 +176,7 @@ class _AccountItemCard extends StatelessWidget {
     required this.isSelected,
     required this.balance,
     required this.onTap,
+    this.onLongPress,
   });
 
   @override
@@ -145,6 +186,7 @@ class _AccountItemCard extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
+      onLongPress: onLongPress,
       borderRadius: BorderRadius.circular(18),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
@@ -200,6 +242,56 @@ class _AccountItemCard extends StatelessWidget {
                 color: balance < 0
                     ? AppColors.expense
                     : (balance > 0 ? AppColors.income : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary)),
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AddAccountChip extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _AddAccountChip({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        width: 110,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: AppColors.primary.withOpacity(0.3),
+            width: 1.2,
+          ),
+        ),
+        child: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.add_rounded,
+              size: 22,
+              color: AppColors.primary,
+            ),
+            SizedBox(height: 8),
+            Text(
+              '+ Account',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: AppColors.primary,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,

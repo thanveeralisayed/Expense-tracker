@@ -13,6 +13,7 @@ import '../../transactions/presentation/widgets/sticky_date_header.dart';
 import '../../transactions/presentation/add_transaction_sheet.dart';
 import '../../transactions/presentation/transaction_detail_screen.dart';
 import '../../transactions/presentation/transaction_search_delegate.dart';
+import '../../accounts/presentation/create_account_dialog.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -130,6 +131,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             },
           ),
           IconButton(
+            tooltip: 'Add Account',
+            icon: const Icon(Icons.account_balance_wallet_outlined),
+            onPressed: () => CreateAccountDialog.show(context),
+          ),
+          IconButton(
             tooltip: 'Restore Backup',
             icon: _isRestoring
                 ? const SizedBox(
@@ -187,7 +193,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              'Restore your zipped backup file from My Expenses to import all your accounts and transactions.',
+                              'Start by creating an account (e.g. Cash, Bank) or restore an existing backup file.',
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 color: isDark
@@ -199,9 +205,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             SizedBox(
                               width: double.infinity,
                               child: FilledButton.icon(
+                                onPressed: () => CreateAccountDialog.show(context),
+                                icon: const Icon(Icons.add_circle_outline_rounded),
+                                label: const Text('Create New Account'),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
                                 onPressed: _isRestoring ? null : _pickAndRestoreFile,
                                 icon: const Icon(Icons.file_open_rounded),
-                                label: const Text('Select Backup File (.zip)'),
+                                label: const Text('Restore Backup File (.zip)'),
                               ),
                             ),
                             const SizedBox(height: 10),

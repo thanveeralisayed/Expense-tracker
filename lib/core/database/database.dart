@@ -33,6 +33,21 @@ class AppDatabase extends _$AppDatabase {
     return (select(accounts)..orderBy([(t) => OrderingTerm(expression: t.sortKey)])).get();
   }
 
+  // Create new account
+  Future<int> createAccount(AccountsCompanion account) {
+    return into(accounts).insert(account);
+  }
+
+  // Update existing account
+  Future<bool> updateAccount(Account account) {
+    return update(accounts).replace(account);
+  }
+
+  // Delete account by ID
+  Future<int> deleteAccount(int accountId) {
+    return (delete(accounts)..where((a) => a.id.equals(accountId))).go();
+  }
+
   // Stream transactions for an account (or all accounts if null)
   Stream<List<Transaction>> watchTransactions({int? accountId, int limit = 200, bool includeSplits = false}) {
     final query = select(transactions);
