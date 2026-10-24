@@ -48,6 +48,107 @@ class AppDatabase extends _$AppDatabase {
     return (delete(accounts)..where((a) => a.id.equals(accountId))).go();
   }
 
+  // --- Category Methods ---
+
+  // Stream all categories
+  Stream<List<Category>> watchAllCategories() {
+    return (select(categories)..orderBy([(t) => OrderingTerm(expression: t.label)])).watch();
+  }
+
+  // Get all categories once
+  Future<List<Category>> getAllCategories() {
+    return (select(categories)..orderBy([(t) => OrderingTerm(expression: t.label)])).get();
+  }
+
+  // Create category
+  Future<int> createCategory(CategoriesCompanion entry) {
+    return into(categories).insert(entry);
+  }
+
+  // Update category
+  Future<bool> updateCategory(Category entry) {
+    return update(categories).replace(entry);
+  }
+
+  // Delete category with cascade safeguard (unlinks child categories and transactions)
+  Future<void> deleteCategory(int categoryId) async {
+    await transaction(() async {
+      // 1. Unlink child categories (set parentId = null)
+      await (update(categories)..where((c) => c.parentId.equals(categoryId))).write(
+        const CategoriesCompanion(parentId: Value(null)),
+      );
+      // 2. Unlink transactions (set catId = null)
+      await (update(transactions)..where((t) => t.catId.equals(categoryId))).write(
+        const TransactionsCompanion(catId: Value(null)),
+      );
+      // 3. Delete category itself
+      await (delete(categories)..where((c) => c.id.equals(categoryId))).go();
+    });
+  }
+
+  // Get category usage counts: map of categoryId -> count of transactions
+  Future<Map<int, int>> getCategoryUsageCounts() async {
+    final all = await (select(transactions)..where((t) => t.catId.isNotNull())).get();
+    final counts = <int, int>{};
+    for (final tx in all) {
+      if (tx.catId != null) {
+        counts[tx.catId!] = (counts[tx.catId!] ?? 0) + 1;
+      }
+    }
+    return counts;
+  }
+
+  // Get uncategorized transactions
+  Future<List<Transaction>> getUncategorizedTransactions() {
+    return (select(transactions)
+          ..where((t) => t.catId.isNull() & t.parentId.isNull())
+          ..orderBy([(t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc)]))
+        .get();
+  }
+
+  // Batch update transaction categories in a single atomic transaction
+  Future<void> batchUpdateTransactionCategories(Map<int, int> txIdToCatId) async {
+    await transaction(() async {
+      for (final entry in txIdToCatId.entries) {
+        await (update(transactions)..where((t) => t.id.equals(entry.key))).write(
+          TransactionsCompanion(catId: Value(entry.value)),
+        );
+      }
+    });
+  }
+
+  // Seed default categories if none exist
+  Future<void> seedDefaultCategoriesIfEmpty() async {
+    final existing = await (select(categories)..limit(1)).get();
+    if (existing.isNotEmpty) return;
+
+    final defaultList = [
+      // Expense Categories (type: 0)
+      const CategoriesCompanion(label: Value('Groceries'), icon: Value('shopping_cart'), color: Value(0xFF10B981), type: Value(0)),
+      const CategoriesCompanion(label: Value('Food & Dining'), icon: Value('restaurant'), color: Value(0xFFF59E0B), type: Value(0)),
+      const CategoriesCompanion(label: Value('Fuel & Transport'), icon: Value('local_gas_station'), color: Value(0xFFEF4444), type: Value(0)),
+      const CategoriesCompanion(label: Value('Home & Capital'), icon: Value('home_repair_service'), color: Value(0xFF8B5CF6), type: Value(0)),
+      const CategoriesCompanion(label: Value('Health & Medical'), icon: Value('medical_services'), color: Value(0xFFEC4899), type: Value(0)),
+      const CategoriesCompanion(label: Value('Utilities & Bills'), icon: Value('bolt'), color: Value(0xFF3B82F6), type: Value(0)),
+      const CategoriesCompanion(label: Value('Shopping'), icon: Value('shopping_bag'), color: Value(0xFF06B6D4), type: Value(0)),
+      const CategoriesCompanion(label: Value('Family Support'), icon: Value('family_restroom'), color: Value(0xFFF97316), type: Value(0)),
+      const CategoriesCompanion(label: Value('Entertainment'), icon: Value('movie'), color: Value(0xFF6366F1), type: Value(0)),
+      const CategoriesCompanion(label: Value('Education'), icon: Value('school'), color: Value(0xFF14B8A6), type: Value(0)),
+      const CategoriesCompanion(label: Value('Other Expense'), icon: Value('more_horiz'), color: Value(0xFF64748B), type: Value(0)),
+
+      // Income Categories (type: 1)
+      const CategoriesCompanion(label: Value('Salary'), icon: Value('payments'), color: Value(0xFF10B981), type: Value(1)),
+      const CategoriesCompanion(label: Value('Business Profit'), icon: Value('trending_up'), color: Value(0xFF3B82F6), type: Value(1)),
+      const CategoriesCompanion(label: Value('Gifts & Support'), icon: Value('card_giftcard'), color: Value(0xFFEC4899), type: Value(1)),
+      const CategoriesCompanion(label: Value('Investment'), icon: Value('savings'), color: Value(0xFFF59E0B), type: Value(1)),
+      const CategoriesCompanion(label: Value('Other Income'), icon: Value('account_balance_wallet'), color: Value(0xFF64748B), type: Value(1)),
+    ];
+
+    await batch((b) {
+      b.insertAll(categories, defaultList);
+    });
+  }
+
   // Stream transactions for an account (or all accounts if null)
   Stream<List<Transaction>> watchTransactions({int? accountId, int limit = 200, bool includeSplits = false}) {
     final query = select(transactions);

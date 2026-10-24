@@ -7,17 +7,20 @@ import '../../../core/database/database.dart';
 import '../../../core/providers/database_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../categories/presentation/widgets/category_icon_helper.dart';
 import 'add_transaction_sheet.dart';
 
 class TransactionDetailSheet extends ConsumerWidget {
   final Transaction transaction;
   final Account? account;
+  final Category? category;
   final Account? transferAccount;
 
   const TransactionDetailSheet({
     super.key,
     required this.transaction,
     this.account,
+    this.category,
     this.transferAccount,
   });
 
@@ -126,6 +129,16 @@ class TransactionDetailSheet extends ConsumerWidget {
               value: account?.label ?? 'Account #${transaction.accountId}',
               isDark: isDark,
             ),
+
+            if (!isTransfer) ...[
+              const SizedBox(height: 12),
+              _DetailRow(
+                icon: CategoryIconHelper.getIcon(category?.icon),
+                title: 'Category',
+                value: category?.label ?? 'Uncategorized',
+                isDark: isDark,
+              ),
+            ],
 
             if (isTransfer && transferAccount != null) ...[
               const SizedBox(height: 12),

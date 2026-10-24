@@ -14,6 +14,7 @@ import '../../transactions/presentation/add_transaction_sheet.dart';
 import '../../transactions/presentation/transaction_detail_screen.dart';
 import '../../transactions/presentation/transaction_search_delegate.dart';
 import '../../accounts/presentation/create_account_dialog.dart';
+import '../../categories/presentation/category_list_screen.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -24,6 +25,12 @@ class DashboardScreen extends ConsumerStatefulWidget {
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   bool _isRestoring = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() => ref.read(databaseProvider).seedDefaultCategoriesIfEmpty());
+  }
 
   Future<void> _restoreFromPath(String path) async {
     setState(() => _isRestoring = true);
@@ -115,6 +122,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     for (final acc in accountsAsync.value ?? <Account>[]) {
       accountsMap[acc.id] = acc;
     }
+    final categoriesMap = ref.watch(categoryMapProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -127,6 +135,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               showSearch(
                 context: context,
                 delegate: TransactionSearchDelegate(ref),
+              );
+            },
+          ),
+          IconButton(
+            tooltip: 'Categories',
+            icon: const Icon(Icons.category_outlined),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CategoryListScreen()),
               );
             },
           ),
@@ -265,6 +283,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           (tx) => TransactionListTile(
                             transaction: tx,
                             account: accountsMap[tx.accountId],
+                            category: categoriesMap[tx.catId],
                             onTap: () {
                               showModalBottomSheet(
                                 context: context,
@@ -272,6 +291,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                 builder: (_) => TransactionDetailSheet(
                                   transaction: tx,
                                   account: accountsMap[tx.accountId],
+                                  category: categoriesMap[tx.catId],
                                   transferAccount: tx.transferAccount != null ? accountsMap[tx.transferAccount] : null,
                                 ),
                               );

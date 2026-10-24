@@ -48,3 +48,35 @@ final financialTotalsProvider = FutureProvider<Map<String, int>>((ref) async {
   ref.watch(transactionsStreamProvider); // invalidate when transactions change
   return db.getTotals(accountId: selectedAccountId);
 });
+
+// Stream of all categories
+final categoriesStreamProvider = StreamProvider<List<Category>>((ref) {
+  final db = ref.watch(databaseProvider);
+  return db.watchAllCategories();
+});
+
+// Categories lookup map (id -> Category)
+final categoryMapProvider = Provider<Map<int, Category>>((ref) {
+  final asyncCategories = ref.watch(categoriesStreamProvider);
+  return asyncCategories.when(
+    data: (categories) => {for (final cat in categories) cat.id: cat},
+    loading: () => {},
+    error: (_, _) => {},
+  );
+});
+
+// Category transaction usage counts
+final categoryUsageCountsProvider = FutureProvider<Map<int, int>>((ref) async {
+  final db = ref.watch(databaseProvider);
+  ref.watch(transactionsStreamProvider); // invalidate when transactions change
+  return db.getCategoryUsageCounts();
+});
+
+// Uncategorized transactions count
+final uncategorizedCountProvider = FutureProvider<int>((ref) async {
+  final db = ref.watch(databaseProvider);
+  ref.watch(transactionsStreamProvider);
+  final uncategorized = await db.getUncategorizedTransactions();
+  return uncategorized.length;
+});
+

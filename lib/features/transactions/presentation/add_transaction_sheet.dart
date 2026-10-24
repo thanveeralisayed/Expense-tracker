@@ -7,6 +7,9 @@ import '../../../core/database/database.dart';
 import '../../../core/providers/database_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../accounts/presentation/create_account_dialog.dart';
+import '../../categories/presentation/edit_category_dialog.dart';
+import '../../categories/presentation/widgets/category_icon_helper.dart';
+import '../../categories/domain/smart_categorizer_engine.dart';
 import 'split_transaction_screen.dart';
 import 'widgets/calculator_numpad.dart';
 
@@ -28,6 +31,8 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
   late DateTime _selectedDate;
   int? _selectedAccountId;
   int? _transferToAccountId;
+  int? _selectedCatId;
+  bool _userManuallySelectedCategory = false;
 
   @override
   void initState() {
@@ -49,6 +54,8 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
       _noteController = TextEditingController(text: init.comment ?? '');
       _selectedDate = init.date;
       _selectedAccountId = init.accountId;
+      _selectedCatId = init.catId;
+      _userManuallySelectedCategory = init.catId != null;
     } else {
       _noteController = TextEditingController();
       _selectedDate = DateTime.now();
@@ -152,6 +159,7 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
         final updated = existing.copyWith(
           amount: updatedAmount,
           comment: drift.Value(note),
+          catId: drift.Value(_selectedCatId),
           date: _selectedDate,
           valueDate: _selectedDate,
           accountId: _selectedAccountId!,
@@ -185,6 +193,7 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
               date: _selectedDate,
               valueDate: _selectedDate,
               comment: drift.Value(note),
+              catId: drift.Value(_selectedCatId),
             ),
           );
         }
@@ -220,6 +229,8 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final accountsAsync = ref.watch(accountsStreamProvider);
     final accounts = accountsAsync.value ?? <Account>[];
+    final categoriesAsync = ref.watch(categoriesStreamProvider);
+    final categories = categoriesAsync.value ?? <Category>[];
 
     if (_selectedAccountId == null && accounts.isNotEmpty) {
       _selectedAccountId = accounts.first.id;
@@ -398,6 +409,66 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
                           ],
                         ],
                       ),
+
+                      // Category Selector (for Expense and Income)
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          const Icon(Icons.category_outlined, size: 20),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: DropdownButtonFormField<int?>(
+                              value: _selectedCatId,
+                              isExpanded: true,
+                              decoration: InputDecoration(
+                                labelText: 'Category',
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              items: [
+                                const DropdownMenuItem<int?>(value: null, child: Text('No Category')),
+                                ...categories.where((c) => c.type == (_type == TransactionType.expense ? 0 : 1)).map((cat) {
+                                  final color = Color(cat.color ?? 0xFF10B981);
+                                  return DropdownMenuItem<int?>(
+                                    value: cat.id,
+                                    child: Row(
+                                      children: [
+                                        Icon(CategoryIconHelper.getIcon(cat.icon), size: 18, color: color),
+                                        const SizedBox(width: 8),
+                                        Text(cat.label, overflow: TextOverflow.ellipsis),
+                                      ],
+                                    ),
+                                  );
+                                }),
+                              ],
+                              onChanged: (val) {
+                                setState(() {
+                                  _selectedCatId = val;
+                                  _userManuallySelectedCategory = true;
+                                });
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          IconButton(
+                            icon: const Icon(Icons.add_circle_outline_rounded, size: 22, color: AppColors.primary),
+                            tooltip: 'New Category',
+                            onPressed: () async {
+                              final created = await EditCategoryDialog.show(
+                                context,
+                                defaultType: _type == TransactionType.expense ? 0 : 1,
+                              );
+                              if (created != null && mounted) {
+                                setState(() {
+                                  _selectedCatId = created.id;
+                                  _userManuallySelectedCategory = true;
+                                });
+                              }
+                            },
+                          ),
+                        ],
+                      ),
                     ] else ...[
                       // Transfer Source and Destination
                       Row(
@@ -454,6 +525,14 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
                         Expanded(
                           child: TextField(
                             controller: _noteController,
+                            onChanged: (text) {
+                              if (!_userManuallySelectedCategory && _type != TransactionType.transfer) {
+                                final matched = SmartCategorizerEngine.matchCategory(text, categories);
+                                if (matched != null && matched.id != _selectedCatId) {
+                                  setState(() => _selectedCatId = matched.id);
+                                }
+                              }
+                            },
                             decoration: InputDecoration(
                               hintText: 'Note (e.g. Milk, Petrol, Roofing)',
                               isDense: true,

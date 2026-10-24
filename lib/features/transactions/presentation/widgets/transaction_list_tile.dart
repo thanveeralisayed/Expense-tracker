@@ -3,16 +3,19 @@ import 'package:intl/intl.dart';
 import '../../../../core/database/database.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/currency_formatter.dart';
+import '../../../categories/presentation/widgets/category_icon_helper.dart';
 
 class TransactionListTile extends StatelessWidget {
   final Transaction transaction;
   final Account? account;
+  final Category? category;
   final VoidCallback? onTap;
 
   const TransactionListTile({
     super.key,
     required this.transaction,
     this.account,
+    this.category,
     this.onTap,
   });
 
@@ -26,14 +29,20 @@ class TransactionListTile extends StatelessWidget {
         ? AppColors.transfer
         : (isExpense ? AppColors.expense : AppColors.income);
 
+    final Color iconColor = category?.color != null
+        ? Color(category!.color!)
+        : statusColor;
+
     final IconData statusIcon = isTransfer
         ? Icons.swap_horiz_rounded
-        : (isExpense ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded);
+        : (category?.icon != null
+            ? CategoryIconHelper.getIcon(category!.icon)
+            : (isExpense ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded));
 
     final dateStr = DateFormat('dd MMM, hh:mm a').format(transaction.date);
     final comment = (transaction.comment != null && transaction.comment!.trim().isNotEmpty)
         ? transaction.comment!.trim()
-        : (isTransfer ? 'Transfer' : (isExpense ? 'Expense' : 'Income'));
+        : (isTransfer ? 'Transfer' : (category != null ? category!.label : (isExpense ? 'Expense' : 'Income')));
 
     return InkWell(
       onTap: onTap,
@@ -47,10 +56,10 @@ class TransactionListTile extends StatelessWidget {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: statusColor.withOpacity(0.12),
+                color: iconColor.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: Icon(statusIcon, color: statusColor, size: 20),
+              child: Icon(statusIcon, color: iconColor, size: 20),
             ),
             const SizedBox(width: 14),
 
@@ -94,6 +103,28 @@ class TransactionListTile extends StatelessWidget {
                                 ),
                               ),
                             ],
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                      ],
+                      if (category != null) ...[
+                        Flexible(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: iconColor.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              category!.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: iconColor,
+                              ),
+                            ),
                           ),
                         ),
                         const SizedBox(width: 6),

@@ -12,8 +12,9 @@ import '../../accounts/presentation/create_account_dialog.dart';
 class SplitItemData {
   final TextEditingController noteController;
   final TextEditingController amountController;
+  int? categoryId;
 
-  SplitItemData({String note = '', String amount = ''})
+  SplitItemData({String note = '', String amount = '', this.categoryId})
       : noteController = TextEditingController(text: note),
         amountController = TextEditingController(text: amount);
 
@@ -214,6 +215,7 @@ class _SplitTransactionScreenState extends ConsumerState<SplitTransactionScreen>
           date: _selectedDate,
           valueDate: _selectedDate,
           comment: drift.Value(splitNote.isNotEmpty ? splitNote : 'Split Item'),
+          catId: drift.Value(item.categoryId),
         );
       }).toList();
 
