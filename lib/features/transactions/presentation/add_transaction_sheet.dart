@@ -382,6 +382,7 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
                                   )
                                 : DropdownButtonFormField<int>(
                                     value: _selectedAccountId,
+                                    isExpanded: true,
                                     decoration: InputDecoration(
                                       isDense: true,
                                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -390,7 +391,7 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
                                     items: accounts.map((acc) {
                                       return DropdownMenuItem<int>(
                                         value: acc.id,
-                                        child: Text(acc.label),
+                                        child: Text(acc.label, overflow: TextOverflow.ellipsis),
                                       );
                                     }).toList(),
                                     onChanged: (val) => setState(() => _selectedAccountId = val),
@@ -500,6 +501,7 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
                           Expanded(
                             child: DropdownButtonFormField<int>(
                               value: _transferToAccountId,
+                              isExpanded: true,
                               decoration: InputDecoration(
                                 labelText: 'To',
                                 isDense: true,
@@ -536,7 +538,7 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
                               }
                             },
                             decoration: InputDecoration(
-                              hintText: 'Note (e.g. Milk, Petrol, Roofing)',
+                              hintText: 'Note (e.g. Groceries)',
                               isDense: true,
                               prefixIcon: const Icon(Icons.edit_note_rounded, size: 22),
                               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),

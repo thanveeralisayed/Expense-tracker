@@ -46,8 +46,11 @@ class MonthlyTrendBarChart extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 12,
+              runSpacing: 8,
               children: [
                 Text(
                   '6-Month Cash Flow Trend',
@@ -58,6 +61,7 @@ class MonthlyTrendBarChart extends StatelessWidget {
                 ),
                 // Legend
                 Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     _buildLegendItem(AppColors.incomeGreen, 'Inflow'),
                     const SizedBox(width: 12),

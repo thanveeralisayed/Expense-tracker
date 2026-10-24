@@ -160,7 +160,7 @@ void main() {
     expect(find.text('No Category'), findsOneWidget);
 
     // 2. Type note "Dinner with family at restaurant"
-    final noteField = find.widgetWithText(TextField, 'Note (e.g. Milk, Petrol, Roofing)');
+    final noteField = find.widgetWithText(TextField, 'Note (e.g. Groceries)');
     await tester.enterText(noteField, 'Dinner with family at restaurant');
     await tester.pump();
 

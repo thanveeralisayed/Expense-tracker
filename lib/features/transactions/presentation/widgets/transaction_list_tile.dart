@@ -127,7 +127,7 @@ class TransactionListTile extends StatelessWidget {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 6),
+                        if (account != null) const SizedBox(width: 6),
                       ],
                       if (account != null) ...[
                         Flexible(
@@ -149,15 +149,7 @@ class TransactionListTile extends StatelessWidget {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 6),
                       ],
-                      Text(
-                        dateStr,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-                        ),
-                      ),
                     ],
                   ),
                 ],
@@ -165,14 +157,28 @@ class TransactionListTile extends StatelessWidget {
             ),
             const SizedBox(width: 10),
 
-            // Amount
-            Text(
-              CurrencyFormatter.formatPaise(transaction.amount),
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: statusColor,
-              ),
+            // Amount and Date Trailing Column
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  CurrencyFormatter.formatPaise(transaction.amount),
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: statusColor,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  dateStr,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                  ),
+                ),
+              ],
             ),
           ],
         ),

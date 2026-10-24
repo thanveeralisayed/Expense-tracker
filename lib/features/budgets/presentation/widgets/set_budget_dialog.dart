@@ -167,6 +167,7 @@ class _SetBudgetDialogState extends ConsumerState<SetBudgetDialog> {
                 data: (categories) {
                   return DropdownButtonFormField<int?>(
                     value: _selectedCatId,
+                    isExpanded: true,
                     decoration: InputDecoration(
                       filled: true,
                       fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
@@ -185,7 +186,7 @@ class _SetBudgetDialogState extends ConsumerState<SetBudgetDialog> {
                           children: [
                             Icon(Icons.all_inclusive_rounded, size: 18, color: AppColors.primary),
                             SizedBox(width: 8),
-                            Text('Total Monthly Budget (Overall)'),
+                            Flexible(child: Text('Total Monthly Budget (Overall)', overflow: TextOverflow.ellipsis)),
                           ],
                         ),
                       ),
@@ -203,7 +204,7 @@ class _SetBudgetDialogState extends ConsumerState<SetBudgetDialog> {
                                 ),
                               ),
                               const SizedBox(width: 8),
-                              Text(cat.label),
+                              Flexible(child: Text(cat.label, overflow: TextOverflow.ellipsis)),
                             ],
                           ),
                         ),

@@ -12,7 +12,7 @@ class TransactionSearchDelegate extends SearchDelegate<Transaction?> {
   TransactionSearchDelegate(this.ref);
 
   @override
-  String get searchFieldLabel => 'Search notes (e.g. Milk, Petrol, Roofing)...';
+  String get searchFieldLabel => 'Search transactions...';
 
   @override
   List<Widget>? buildActions(BuildContext context) {

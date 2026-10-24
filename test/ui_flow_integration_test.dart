@@ -79,7 +79,7 @@ void main() {
     await tester.pump();
 
     // Enter note "Dinner with family"
-    await tester.enterText(find.widgetWithText(TextField, 'Note (e.g. Milk, Petrol, Roofing)'), 'Dinner with family');
+    await tester.enterText(find.widgetWithText(TextField, 'Note (e.g. Groceries)'), 'Dinner with family');
     await tester.pump();
 
     // Save transaction
@@ -208,7 +208,7 @@ void main() {
     await tester.pump();
 
     // Enter note "ATM Withdrawal"
-    await tester.enterText(find.widgetWithText(TextField, 'Note (e.g. Milk, Petrol, Roofing)'), 'ATM Withdrawal');
+    await tester.enterText(find.widgetWithText(TextField, 'Note (e.g. Groceries)'), 'ATM Withdrawal');
     await tester.pump();
 
     // Save Transfer

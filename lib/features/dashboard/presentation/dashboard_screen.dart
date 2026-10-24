@@ -152,22 +152,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             },
           ),
           IconButton(
-            tooltip: 'Add Account',
-            icon: const Icon(Icons.account_balance_wallet_outlined),
-            onPressed: () => CreateAccountDialog.show(context),
-          ),
-          IconButton(
-            tooltip: 'Restore Backup',
-            icon: _isRestoring
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.settings_backup_restore_rounded),
-            onPressed: _isRestoring ? null : () => _showRestoreDialog(),
-          ),
-          IconButton(
             tooltip: 'Settings',
             icon: const Icon(Icons.tune_rounded),
             onPressed: () {

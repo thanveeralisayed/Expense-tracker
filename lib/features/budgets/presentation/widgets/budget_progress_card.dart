@@ -30,7 +30,7 @@ class BudgetProgressCard extends StatelessWidget {
         break;
       case BudgetStatus.warning:
         statusColor = AppColors.accentWarning;
-        statusLabel = 'Warning (75%+)';
+        statusLabel = 'Warning';
         statusIcon = Icons.warning_amber_rounded;
         break;
       case BudgetStatus.overBudget:

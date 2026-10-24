@@ -122,47 +122,54 @@ class TotalBalanceCard extends ConsumerWidget {
                     children: [
                       // Total Outflow
                       Expanded(
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: AppColors.expense.withOpacity(0.12),
-                                shape: BoxShape.circle,
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: AppColors.expense.withOpacity(0.12),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.arrow_downward_rounded,
+                                  size: 16,
+                                  color: AppColors.expense,
+                                ),
                               ),
-                              child: const Icon(
-                                Icons.arrow_downward_rounded,
-                                size: 16,
-                                color: AppColors.expense,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Total Outflow',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: Theme.of(context).brightness == Brightness.dark
-                                          ? AppColors.darkTextSecondary
-                                          : AppColors.lightTextSecondary,
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Total Outflow',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Theme.of(context).brightness == Brightness.dark
+                                            ? AppColors.darkTextSecondary
+                                            : AppColors.lightTextSecondary,
+                                      ),
                                     ),
-                                  ),
-                                  Text(
-                                    CurrencyFormatter.formatPaiseAbsolute(expenses),
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w700,
-                                      color: AppColors.expense,
+                                    FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        CurrencyFormatter.formatPaiseAbsolute(expenses),
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.expense,
+                                        ),
+                                        maxLines: 1,
+                                      ),
                                     ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                       Container(
@@ -175,7 +182,7 @@ class TotalBalanceCard extends ConsumerWidget {
                       // Total Inflow
                       Expanded(
                         child: Padding(
-                          padding: const EdgeInsets.only(left: 12),
+                          padding: const EdgeInsets.only(left: 8),
                           child: Row(
                             children: [
                               Container(
@@ -190,7 +197,7 @@ class TotalBalanceCard extends ConsumerWidget {
                                   color: AppColors.income,
                                 ),
                               ),
-                              const SizedBox(width: 10),
+                              const SizedBox(width: 8),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -204,14 +211,18 @@ class TotalBalanceCard extends ConsumerWidget {
                                             : AppColors.lightTextSecondary,
                                       ),
                                     ),
-                                    Text(
-                                      CurrencyFormatter.formatPaiseAbsolute(income),
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w700,
-                                        color: AppColors.income,
+                                    FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        CurrencyFormatter.formatPaiseAbsolute(income),
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.income,
+                                        ),
+                                        maxLines: 1,
                                       ),
-                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ],
                                 ),
