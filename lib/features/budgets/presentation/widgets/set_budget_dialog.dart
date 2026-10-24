@@ -122,163 +122,166 @@ class _SetBudgetDialogState extends ConsumerState<SetBudgetDialog> {
           borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         ),
         padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.white24 : Colors.black12,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 18),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  widget.currentLimitPaise != null ? 'Edit Budget' : 'Set New Budget',
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white24 : Colors.black12,
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-                if (widget.currentLimitPaise != null)
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline, color: AppColors.expense),
-                    tooltip: 'Delete Budget',
-                    onPressed: _remove,
-                  ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            // Select category if not pre-bound
-            if (widget.catId == null && widget.categoryName == null) ...[
-              const Text(
-                'Budget Type',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
               ),
-              const SizedBox(height: 8),
-              categoriesAsync.when(
-                data: (categories) {
-                  return DropdownButtonFormField<int?>(
-                    value: _selectedCatId,
-                    isExpanded: true,
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: BorderSide(
-                          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-                        ),
-                      ),
+              const SizedBox(height: 18),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    widget.currentLimitPaise != null ? 'Edit Budget' : 'Set New Budget',
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
                     ),
-                    items: [
-                      const DropdownMenuItem<int?>(
-                        value: null,
-                        child: Row(
-                          children: [
-                            Icon(Icons.all_inclusive_rounded, size: 18, color: AppColors.primary),
-                            SizedBox(width: 8),
-                            Flexible(child: Text('Total Monthly Budget (Overall)', overflow: TextOverflow.ellipsis)),
-                          ],
-                        ),
-                      ),
-                      ...categories.map(
-                        (cat) => DropdownMenuItem<int?>(
-                          value: cat.id,
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 12,
-                                height: 12,
-                                decoration: BoxDecoration(
-                                  color: Color(cat.color ?? 0xFF0D9488),
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Flexible(child: Text(cat.label, overflow: TextOverflow.ellipsis)),
-                            ],
+                  ),
+                  if (widget.currentLimitPaise != null)
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, color: AppColors.expense),
+                      tooltip: 'Delete Budget',
+                      onPressed: _remove,
+                    ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              // Select category if not pre-bound
+              if (widget.catId == null && widget.categoryName == null) ...[
+                const Text(
+                  'Budget Type',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                categoriesAsync.when(
+                  data: (categories) {
+                    return DropdownButtonFormField<int?>(
+                      value: _selectedCatId,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide(
+                            color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
                           ),
                         ),
                       ),
-                    ],
-                    onChanged: (val) {
-                      setState(() {
-                        _selectedCatId = val;
-                      });
-                    },
-                  );
-                },
-                loading: () => const LinearProgressIndicator(),
-                error: (_, _) => const SizedBox.shrink(),
-              ),
-              const SizedBox(height: 16),
-            ] else ...[
-              Text(
-                'Target: ${widget.categoryName ?? 'Total Monthly'}',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                      items: [
+                        const DropdownMenuItem<int?>(
+                          value: null,
+                          child: Row(
+                            children: [
+                              Icon(Icons.all_inclusive_rounded, size: 18, color: AppColors.primary),
+                              SizedBox(width: 8),
+                              Flexible(child: Text('Total Monthly Budget (Overall)', overflow: TextOverflow.ellipsis)),
+                            ],
+                          ),
+                        ),
+                        ...categories.map(
+                          (cat) => DropdownMenuItem<int?>(
+                            value: cat.id,
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 12,
+                                  height: 12,
+                                  decoration: BoxDecoration(
+                                    color: Color(cat.color ?? 0xFF0D9488),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Flexible(child: Text(cat.label, overflow: TextOverflow.ellipsis)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                      onChanged: (val) {
+                        setState(() {
+                          _selectedCatId = val;
+                        });
+                      },
+                    );
+                  },
+                  loading: () => const LinearProgressIndicator(),
+                  error: (_, _) => const SizedBox.shrink(),
                 ),
-              ),
-              const SizedBox(height: 16),
-            ],
-            // Amount Input
-            const Text(
-              'Monthly Limit (₹)',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _amountController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: false),
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              autofocus: true,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
-              decoration: InputDecoration(
-                prefixText: '₹ ',
-                prefixStyle: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
-                hintText: 'e.g. 25000',
-                filled: true,
-                fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(
-                    color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                const SizedBox(height: 16),
+              ] else ...[
+                Text(
+                  'Target: ${widget.categoryName ?? 'Total Monthly'}',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
                   ),
                 ),
+                const SizedBox(height: 16),
+              ],
+              // Amount Input
+              const Text(
+                'Monthly Limit (₹)',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
               ),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: _save,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
+              const SizedBox(height: 8),
+              TextField(
+                controller: _amountController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: false),
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                autofocus: true,
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+                decoration: InputDecoration(
+                  prefixText: '₹ ',
+                  prefixStyle: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+                  hintText: '25,000',
+                  filled: true,
+                  fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                  border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(
+                      color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                    ),
                   ),
-                  elevation: 0,
-                ),
-                child: const Text(
-                  'Save Budget',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: _save,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: const Text(
+                    'Save Budget',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

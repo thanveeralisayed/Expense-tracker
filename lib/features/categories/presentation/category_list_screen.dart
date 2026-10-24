@@ -202,14 +202,18 @@ class _CategoryListScreenState extends ConsumerState<CategoryListScreen> with Si
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          '$uncategorizedCount Uncategorized Entries',
-                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            '$uncategorizedCount Uncategorized ${uncategorizedCount == 1 ? 'Entry' : 'Entries'}',
+                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                            maxLines: 1,
+                          ),
                         ),
+                        const SizedBox(height: 2),
                         Text(
-                          'Tap to run auto-categorizer on legacy notes',
+                          'Tap to auto-categorize notes',
                           style: TextStyle(
                             fontSize: 11,
                             color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
@@ -220,10 +224,11 @@ class _CategoryListScreenState extends ConsumerState<CategoryListScreen> with Si
                       ],
                     ),
                   ),
+                  const SizedBox(width: 8),
                   FilledButton(
                     onPressed: () => AutoCategorizeWizardSheet.show(context),
                     style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       visualDensity: VisualDensity.compact,
                     ),
                     child: const Text('Scan & Fix'),
@@ -267,8 +272,8 @@ class _CategoryListScreenState extends ConsumerState<CategoryListScreen> with Si
                 ),
                 subtitle: Text(
                   children.isNotEmpty
-                      ? '${children.length} subcategories • $count transactions'
-                      : '$count transactions',
+                      ? '${children.length} ${children.length == 1 ? 'subcategory' : 'subcategories'} • $count ${count == 1 ? 'transaction' : 'transactions'}'
+                      : '$count ${count == 1 ? 'transaction' : 'transactions'}',
                   style: TextStyle(
                     fontSize: 12,
                     color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
@@ -302,7 +307,7 @@ class _CategoryListScreenState extends ConsumerState<CategoryListScreen> with Si
                     ),
                     title: Text(sub.label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                     subtitle: Text(
-                      '$subCount transactions',
+                      '$subCount ${subCount == 1 ? 'transaction' : 'transactions'}',
                       style: TextStyle(
                         fontSize: 11,
                         color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,

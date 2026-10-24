@@ -111,7 +111,7 @@ void main() {
 
     // Verify Extras account balance is shown: -₹10,000.00
     expect(find.text('-₹10,000.00'), findsWidgets);
-    expect(find.text('1 Transactions'), findsOneWidget);
+    expect(find.text('1 Transaction'), findsOneWidget);
     expect(find.text('Zulfi'), findsOneWidget);
 
     await db.close();

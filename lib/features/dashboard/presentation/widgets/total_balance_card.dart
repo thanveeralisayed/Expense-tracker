@@ -65,17 +65,22 @@ class TotalBalanceCard extends ConsumerWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      accountTitle.toUpperCase(),
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.2,
-                        color: Theme.of(context).brightness == Brightness.dark
-                            ? AppColors.darkTextSecondary
-                            : AppColors.lightTextSecondary,
+                    Expanded(
+                      child: Text(
+                        accountTitle.toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.2,
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? AppColors.darkTextSecondary
+                              : AppColors.lightTextSecondary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
@@ -83,7 +88,7 @@ class TotalBalanceCard extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
-                        '$count Transactions',
+                        '$count ${count == 1 ? 'Transaction' : 'Transactions'}',
                         style: const TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
