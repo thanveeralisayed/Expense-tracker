@@ -99,18 +99,22 @@ class TransactionListTile extends StatelessWidget {
                         const SizedBox(width: 6),
                       ],
                       if (account != null) ...[
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: isDark ? AppColors.darkSurfaceVariant : AppColors.lightSurfaceVariant,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            account!.label,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                        Flexible(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: isDark ? AppColors.darkSurfaceVariant : AppColors.lightSurfaceVariant,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              account!.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                              ),
                             ),
                           ),
                         ),
@@ -128,6 +132,7 @@ class TransactionListTile extends StatelessWidget {
                 ],
               ),
             ),
+            const SizedBox(width: 10),
 
             // Amount
             Text(
