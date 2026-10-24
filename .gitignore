@@ -57,3 +57,5 @@ ui_settings.preferences_pb
 *.sqlite-journal
 *.sqlite-wal
 *.sqlite-shm
+*.apk
+build_artifacts/
