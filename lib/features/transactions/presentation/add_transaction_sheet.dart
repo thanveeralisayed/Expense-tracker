@@ -32,6 +32,8 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
   int? _selectedAccountId;
   int? _transferToAccountId;
   int? _selectedCatId;
+  int? _selectedPayeeId;
+  int? _selectedMethodId;
   bool _userManuallySelectedCategory = false;
 
   @override
@@ -55,12 +57,17 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
       _selectedDate = init.date;
       _selectedAccountId = init.accountId;
       _selectedCatId = init.catId;
+      _selectedPayeeId = init.payeeId;
+      _selectedMethodId = init.methodId;
       _userManuallySelectedCategory = init.catId != null;
     } else {
       _noteController = TextEditingController();
       _selectedDate = DateTime.now();
       _selectedAccountId = ref.read(selectedAccountIdProvider);
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(databaseProvider).seedDefaultPaymentMethodsIfEmpty();
+    });
   }
 
   @override
@@ -160,6 +167,8 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
           amount: updatedAmount,
           comment: drift.Value(note),
           catId: drift.Value(_selectedCatId),
+          payeeId: drift.Value(_selectedPayeeId),
+          methodId: drift.Value(_selectedMethodId),
           date: _selectedDate,
           valueDate: _selectedDate,
           accountId: _selectedAccountId!,
@@ -194,6 +203,8 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
               valueDate: _selectedDate,
               comment: drift.Value(note),
               catId: drift.Value(_selectedCatId),
+              payeeId: drift.Value(_selectedPayeeId),
+              methodId: drift.Value(_selectedMethodId),
             ),
           );
         }
@@ -231,6 +242,8 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
     final accounts = accountsAsync.value ?? <Account>[];
     final categoriesAsync = ref.watch(categoriesStreamProvider);
     final categories = categoriesAsync.value ?? <Category>[];
+    final paymentMethodsAsync = ref.watch(paymentMethodsStreamProvider);
+    final paymentMethods = paymentMethodsAsync.value ?? <PaymentMethod>[];
 
     if (_selectedAccountId == null && accounts.isNotEmpty) {
       _selectedAccountId = accounts.first.id;
@@ -585,6 +598,38 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
                         ),
                       ],
                     ),
+
+                    // Payment Method selector chips
+                    if (_type != TransactionType.transfer && paymentMethods.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        height: 32,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: paymentMethods.length,
+                          separatorBuilder: (context, index) => const SizedBox(width: 6),
+                          itemBuilder: (context, index) {
+                            final m = paymentMethods[index];
+                            final isSelected = _selectedMethodId == m.id;
+                            return ChoiceChip(
+                              label: Text(m.label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                              selected: isSelected,
+                              onSelected: (selected) {
+                                setState(() => _selectedMethodId = selected ? m.id : null);
+                              },
+                              showCheckmark: false,
+                              selectedColor: accentColor.withOpacity(0.2),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                side: BorderSide(
+                                  color: isSelected ? accentColor : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

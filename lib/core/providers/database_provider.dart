@@ -76,6 +76,38 @@ final categoryMapProvider = Provider<Map<int, Category>>((ref) {
   );
 });
 
+// Stream of all payees
+final payeesStreamProvider = StreamProvider<List<Payee>>((ref) {
+  final db = ref.watch(databaseProvider);
+  return db.watchAllPayees();
+});
+
+// Payees lookup map (id -> Payee)
+final payeesMapProvider = Provider<Map<int, Payee>>((ref) {
+  final asyncPayees = ref.watch(payeesStreamProvider);
+  return asyncPayees.when(
+    data: (payees) => {for (final p in payees) p.id: p},
+    loading: () => {},
+    error: (_, _) => {},
+  );
+});
+
+// Stream of all payment methods
+final paymentMethodsStreamProvider = StreamProvider<List<PaymentMethod>>((ref) {
+  final db = ref.watch(databaseProvider);
+  return db.watchAllPaymentMethods();
+});
+
+// Payment methods lookup map (id -> PaymentMethod)
+final paymentMethodsMapProvider = Provider<Map<int, PaymentMethod>>((ref) {
+  final asyncMethods = ref.watch(paymentMethodsStreamProvider);
+  return asyncMethods.when(
+    data: (methods) => {for (final m in methods) m.id: m},
+    loading: () => {},
+    error: (_, _) => {},
+  );
+});
+
 // Category transaction usage counts
 final categoryUsageCountsProvider = FutureProvider<Map<int, int>>((ref) async {
   final db = ref.watch(databaseProvider);

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/database_provider.dart';
+import '../../../core/services/export_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../budgets/presentation/budget_screen.dart';
 import '../../categories/presentation/category_list_screen.dart';
@@ -183,7 +184,47 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 16),
                   Divider(height: 1, color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
+
+                  // Export to CSV
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.table_chart_rounded, color: AppColors.primary, size: 20),
+                    ),
+                    title: const Text('Export to CSV Spreadsheet', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                    subtitle: const Text('Export all transaction records to CSV file', style: TextStyle(fontSize: 12)),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () => _exportCsv(context, ref),
+                  ),
+
+                  Divider(height: 1, color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+
+                  // Export Full Backup ZIP
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF3B82F6).withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.archive_rounded, color: Color(0xFF3B82F6), size: 20),
+                    ),
+                    title: const Text('Export Full Backup (.zip)', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                    subtitle: const Text('Save accounts, categories, and settings as archive', style: TextStyle(fontSize: 12)),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () => _exportFullBackup(context, ref),
+                  ),
+
+                  Divider(height: 1, color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
+
+                  // Restore Backup Archive
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: Container(
@@ -250,7 +291,7 @@ class SettingsScreen extends ConsumerWidget {
                             ),
                             SizedBox(height: 2),
                             Text(
-                              'Version 1.0.0 (Phase 6 Build)',
+                              'Version 1.0.0 (Phase 7 Build)',
                               style: TextStyle(fontSize: 12, color: Colors.grey),
                             ),
                           ],
@@ -330,5 +371,53 @@ class SettingsScreen extends ConsumerWidget {
         ),
       ],
     );
+  }
+
+  Future<void> _exportCsv(BuildContext context, WidgetRef ref) async {
+    final db = ref.read(databaseProvider);
+    final service = ExportService(db);
+    final result = await service.exportTransactionsToCsv();
+
+    if (!context.mounted) return;
+    if (result.success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.incomeGreen,
+          content: Text('Exported ${result.recordCount} transactions to CSV!\n${result.filePath}'),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.expenseRed,
+          content: Text(result.errorMessage ?? 'CSV Export failed'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _exportFullBackup(BuildContext context, WidgetRef ref) async {
+    final db = ref.read(databaseProvider);
+    final service = ExportService(db);
+    final result = await service.createFullBackupZip();
+
+    if (!context.mounted) return;
+    if (result.success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.incomeGreen,
+          content: Text('Backup archive created successfully!\n${result.filePath}'),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.expenseRed,
+          content: Text(result.errorMessage ?? 'Backup Export failed'),
+        ),
+      );
+    }
   }
 }

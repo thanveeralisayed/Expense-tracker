@@ -30,6 +30,10 @@ class TransactionDetailSheet extends ConsumerWidget {
     final isExpense = transaction.amount < 0;
     final isTransfer = transaction.transferAccount != null || transaction.transferPeer != null;
     final categoryMap = ref.watch(categoryMapProvider);
+    final payeesMap = ref.watch(payeesMapProvider);
+    final methodsMap = ref.watch(paymentMethodsMapProvider);
+    final payee = transaction.payeeId != null ? payeesMap[transaction.payeeId] : null;
+    final method = transaction.methodId != null ? methodsMap[transaction.methodId] : null;
 
     final Color statusColor = isTransfer
         ? AppColors.transfer
@@ -166,6 +170,26 @@ class TransactionDetailSheet extends ConsumerWidget {
               value: transaction.crStatus,
               isDark: isDark,
             ),
+
+            if (payee != null) ...[
+              const SizedBox(height: 12),
+              _DetailRow(
+                icon: Icons.person_outline_rounded,
+                title: 'Payee / Recipient',
+                value: payee.name,
+                isDark: isDark,
+              ),
+            ],
+
+            if (method != null) ...[
+              const SizedBox(height: 12),
+              _DetailRow(
+                icon: Icons.payment_rounded,
+                title: 'Payment Method',
+                value: method.label,
+                isDark: isDark,
+              ),
+            ],
 
             // FutureBuilder for Split items if any
             FutureBuilder<List<Transaction>>(

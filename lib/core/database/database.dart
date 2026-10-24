@@ -186,7 +186,7 @@ class AppDatabase extends _$AppDatabase {
     return query.watch();
   }
 
-  // Search transactions with multi-filters
+  // Search transactions with advanced multi-filters and custom sorting
   Stream<List<Transaction>> searchTransactionsStream({
     String? queryText,
     int? accountId,
@@ -194,6 +194,11 @@ class AppDatabase extends _$AppDatabase {
     DateTime? endDate,
     int? minPaise,
     int? maxPaise,
+    int? transactionType, // 0: expense, 1: income, 2: transfer, null: all
+    int? categoryId, // null: all, -1: uncategorized only, >0: specific category
+    int? payeeId,
+    int? methodId,
+    String sortBy = 'date_desc', // 'date_desc', 'date_asc', 'amount_desc', 'amount_asc'
     bool includeSplits = false,
   }) {
     final query = select(transactions);
@@ -220,7 +225,56 @@ class AppDatabase extends _$AppDatabase {
       query.where((t) => t.amount.abs().isSmallerOrEqualValue(maxPaise));
     }
 
-    query.orderBy([(t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc)]);
+    // Transaction Type Filter
+    if (transactionType != null) {
+      if (transactionType == 0) {
+        // Expense: negative amount and not transfer
+        query.where((t) => t.amount.isSmallerThanValue(0) & t.transferAccount.isNull() & t.transferPeer.isNull());
+      } else if (transactionType == 1) {
+        // Income: positive amount and not transfer
+        query.where((t) => t.amount.isBiggerThanValue(0) & t.transferAccount.isNull() & t.transferPeer.isNull());
+      } else if (transactionType == 2) {
+        // Transfer: transferAccount or transferPeer is not null
+        query.where((t) => t.transferAccount.isNotNull() | t.transferPeer.isNotNull());
+      }
+    }
+
+    // Category Filter
+    if (categoryId != null) {
+      if (categoryId == -1) {
+        query.where((t) => t.catId.isNull());
+      } else {
+        query.where((t) => t.catId.equals(categoryId));
+      }
+    }
+
+    // Payee Filter
+    if (payeeId != null) {
+      query.where((t) => t.payeeId.equals(payeeId));
+    }
+
+    // Payment Method Filter
+    if (methodId != null) {
+      query.where((t) => t.methodId.equals(methodId));
+    }
+
+    // Dynamic Ordering
+    switch (sortBy) {
+      case 'date_asc':
+        query.orderBy([(t) => OrderingTerm(expression: t.date, mode: OrderingMode.asc)]);
+        break;
+      case 'amount_desc':
+        query.orderBy([(t) => OrderingTerm(expression: t.amount.abs(), mode: OrderingMode.desc)]);
+        break;
+      case 'amount_asc':
+        query.orderBy([(t) => OrderingTerm(expression: t.amount.abs(), mode: OrderingMode.asc)]);
+        break;
+      case 'date_desc':
+      default:
+        query.orderBy([(t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc)]);
+        break;
+    }
+
     return query.watch();
   }
 
@@ -301,6 +355,13 @@ class AppDatabase extends _$AppDatabase {
     required DateTime date,
     String? comment,
   }) async {
+    if (fromAccountId == toAccountId) {
+      throw ArgumentError('Source and destination accounts must be different');
+    }
+    if (amountPaise <= 0) {
+      throw ArgumentError('Transfer amount must be strictly greater than 0');
+    }
+
     await transaction(() async {
       // 1. Debit transaction from source account
       final fromId = await into(transactions).insert(
@@ -377,6 +438,74 @@ class AppDatabase extends _$AppDatabase {
 
   Stream<List<AppSetting>> watchAllSettings() {
     return select(appSettings).watch();
+  }
+
+  // --- Payees Methods ---
+  Future<List<Payee>> getAllPayees() {
+    return (select(payees)..orderBy([(p) => OrderingTerm(expression: p.name)])).get();
+  }
+
+  Stream<List<Payee>> watchAllPayees() {
+    return (select(payees)..orderBy([(p) => OrderingTerm(expression: p.name)])).watch();
+  }
+
+  Future<int> createPayee(PayeesCompanion entry) {
+    return into(payees).insert(entry);
+  }
+
+  Future<bool> updatePayee(Payee entry) {
+    return update(payees).replace(entry);
+  }
+
+  Future<void> deletePayee(int payeeId) async {
+    await transaction(() async {
+      await (update(transactions)..where((t) => t.payeeId.equals(payeeId))).write(
+        const TransactionsCompanion(payeeId: Value(null)),
+      );
+      await (delete(payees)..where((p) => p.id.equals(payeeId))).go();
+    });
+  }
+
+  // --- Payment Methods ---
+  Future<List<PaymentMethod>> getAllPaymentMethods() {
+    return (select(paymentMethods)..orderBy([(m) => OrderingTerm(expression: m.label)])).get();
+  }
+
+  Stream<List<PaymentMethod>> watchAllPaymentMethods() {
+    return (select(paymentMethods)..orderBy([(m) => OrderingTerm(expression: m.label)])).watch();
+  }
+
+  Future<int> createPaymentMethod(PaymentMethodsCompanion entry) {
+    return into(paymentMethods).insert(entry);
+  }
+
+  Future<bool> updatePaymentMethod(PaymentMethod entry) {
+    return update(paymentMethods).replace(entry);
+  }
+
+  Future<void> deletePaymentMethod(int methodId) async {
+    await transaction(() async {
+      await (update(transactions)..where((t) => t.methodId.equals(methodId))).write(
+        const TransactionsCompanion(methodId: Value(null)),
+      );
+      await (delete(paymentMethods)..where((m) => m.id.equals(methodId))).go();
+    });
+  }
+
+  Future<void> seedDefaultPaymentMethodsIfEmpty() async {
+    final existing = await (select(paymentMethods)..limit(1)).get();
+    if (existing.isNotEmpty) return;
+
+    final defaultMethods = [
+      const PaymentMethodsCompanion(label: Value('Cash'), icon: Value('payments')),
+      const PaymentMethodsCompanion(label: Value('UPI / QR'), icon: Value('qr_code_rounded')),
+      const PaymentMethodsCompanion(label: Value('Credit Card'), icon: Value('credit_card')),
+      const PaymentMethodsCompanion(label: Value('Debit Card'), icon: Value('credit_card')),
+      const PaymentMethodsCompanion(label: Value('Bank Transfer'), icon: Value('account_balance')),
+    ];
+    await batch((b) {
+      b.insertAll(paymentMethods, defaultMethods);
+    });
   }
 }
 

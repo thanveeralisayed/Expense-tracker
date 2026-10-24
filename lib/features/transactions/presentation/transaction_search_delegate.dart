@@ -95,6 +95,12 @@ class _SearchResultsViewState extends ConsumerState<_SearchResultsView> {
                 selected: _typeFilter == 'INCOME',
                 onSelected: (_) => setState(() => _typeFilter = 'INCOME'),
               ),
+              const SizedBox(width: 6),
+              ChoiceChip(
+                label: const Text('Transfers'),
+                selected: _typeFilter == 'TRANSFER',
+                onSelected: (_) => setState(() => _typeFilter = 'TRANSFER'),
+              ),
               const SizedBox(width: 12),
               // Account selector dropdown chip
               PopupMenuButton<int?>(
@@ -132,22 +138,18 @@ class _SearchResultsViewState extends ConsumerState<_SearchResultsView> {
             stream: db.searchTransactionsStream(
               queryText: widget.query,
               accountId: _selectedAccountId,
+              transactionType: _typeFilter == 'EXPENSE'
+                  ? 0
+                  : (_typeFilter == 'INCOME'
+                      ? 1
+                      : (_typeFilter == 'TRANSFER' ? 2 : null)),
             ),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
 
-              var results = snapshot.data ?? <Transaction>[];
-
-              // Apply type filter
-              if (_typeFilter == 'EXPENSE') {
-                results = results.where((t) => t.amount < 0 && t.transferPeer == null && t.transferAccount == null).toList();
-              } else if (_typeFilter == 'INCOME') {
-                results = results.where((t) => t.amount > 0 && t.transferPeer == null && t.transferAccount == null).toList();
-              } else if (_typeFilter == 'TRANSFER') {
-                results = results.where((t) => t.transferPeer != null || t.transferAccount != null).toList();
-              }
+              final results = snapshot.data ?? <Transaction>[];
 
               if (results.isEmpty) {
                 return Center(
