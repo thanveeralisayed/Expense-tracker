@@ -46,3 +46,14 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Expense Backup Files & Local Databases
+myexpenses-backup*/
+*.zip
+BACKUP
+BACKUP_PREF
+ui_settings.preferences_pb
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm

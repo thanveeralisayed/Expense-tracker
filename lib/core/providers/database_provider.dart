@@ -29,11 +29,22 @@ final transactionsStreamProvider = StreamProvider<List<Transaction>>((ref) {
   return db.watchTransactions(accountId: selectedAccountId);
 });
 
+// Balances for all accounts mapped by account ID
+final accountBalancesProvider = FutureProvider<Map<int, int>>((ref) async {
+  final db = ref.watch(databaseProvider);
+  ref.watch(transactionsStreamProvider); // invalidate when transactions change
+  final accounts = await db.getAllAccounts();
+  final map = <int, int>{};
+  for (final acc in accounts) {
+    map[acc.id] = await db.getAccountBalance(acc.id);
+  }
+  return map;
+});
+
 // Aggregate financial statistics
-final financialTotalsProvider = FutureProvider<Map<String, int>>((ref) {
+final financialTotalsProvider = FutureProvider<Map<String, int>>((ref) async {
   final db = ref.watch(databaseProvider);
   final selectedAccountId = ref.watch(selectedAccountIdProvider);
-  // Re-run whenever transactions change
-  ref.watch(transactionsStreamProvider);
+  ref.watch(transactionsStreamProvider); // invalidate when transactions change
   return db.getTotals(accountId: selectedAccountId);
 });

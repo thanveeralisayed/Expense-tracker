@@ -3,7 +3,7 @@ import 'package:drift/drift.dart';
 import 'package:sqlite3/sqlite3.dart' as sqlite;
 import 'package:xml/xml.dart';
 import 'package:path/path.dart' as p;
-import 'package:archive/archive.dart';
+import 'package:archive/archive_io.dart';
 
 import '../database/database.dart';
 
@@ -36,31 +36,30 @@ class BackupRestoreService {
 
   BackupRestoreService(this.database);
 
-  /// Restores from a directory path containing BACKUP and BACKUP_PREF,
-  /// or from a .zip backup archive.
+  /// Generically restores from any:
+  /// 1. .zip backup archive (regardless of nested folder structure)
+  /// 2. Raw SQLite database file (e.g. BACKUP, *.sqlite, *.db)
+  /// 3. Unzipped directory containing backup files
   Future<RestoreResult> restoreBackup(String sourcePath) async {
     Directory? tempExtractDir;
     try {
-      String backupDirPath;
+      String searchDirPath;
       final file = File(sourcePath);
       final dir = Directory(sourcePath);
 
-      if (await file.exists() && sourcePath.toLowerCase().endsWith('.zip')) {
-        // Extract zip
-        final bytes = await file.readAsBytes();
-        final archive = ZipDecoder().decodeBytes(bytes);
-        tempExtractDir = await Directory.systemTemp.createTemp('backup_restore_');
-        for (final archiveFile in archive) {
-          final outPath = p.join(tempExtractDir.path, archiveFile.name);
-          if (archiveFile.isFile) {
-            final outFile = File(outPath);
-            await outFile.parent.create(recursive: true);
-            await outFile.writeAsBytes(archiveFile.content as List<int>);
-          }
+      if (await file.exists()) {
+        final lowerPath = sourcePath.toLowerCase();
+        if (lowerPath.endsWith('.zip')) {
+          // Extract .zip archive to a temp directory
+          tempExtractDir = await Directory.systemTemp.createTemp('backup_restore_');
+          await extractFileToDisk(sourcePath, tempExtractDir.path);
+          searchDirPath = tempExtractDir.path;
+        } else {
+          // Direct file passed (e.g. BACKUP or a .sqlite / .db file)
+          searchDirPath = file.parent.path;
         }
-        backupDirPath = tempExtractDir.path;
       } else if (await dir.exists()) {
-        backupDirPath = dir.path;
+        searchDirPath = dir.path;
       } else {
         return RestoreResult(
           success: false,
@@ -71,13 +70,14 @@ class BackupRestoreService {
           totalExpenses: 0,
           totalIncome: 0,
           netBalance: 0,
-          errorMessage: 'Source path does not exist: $sourcePath',
+          errorMessage: 'Selected path does not exist: $sourcePath',
         );
       }
 
-      final backupDbFile = File(p.join(backupDirPath, 'BACKUP'));
-      if (!await backupDbFile.exists()) {
-        return RestoreResult(
+      // Discover SQLite database file
+      final backupDbFile = _findSqliteDatabase(searchDirPath, directPath: sourcePath);
+      if (backupDbFile == null || !await backupDbFile.exists()) {
+        return const RestoreResult(
           success: false,
           accountsCount: 0,
           transactionsCount: 0,
@@ -86,12 +86,18 @@ class BackupRestoreService {
           totalExpenses: 0,
           totalIncome: 0,
           netBalance: 0,
-          errorMessage: 'BACKUP SQLite file not found in $backupDirPath',
+          errorMessage: 'No valid SQLite database (BACKUP or .db file) found in the selected file or folder.',
         );
       }
 
-      // Open legacy SQLite database in read-only mode
+      // Open SQLite database in read-only mode
       final legacyDb = sqlite.sqlite3.open(backupDbFile.path, mode: sqlite.OpenMode.readOnly);
+
+      // Inspect available tables
+      final tableNames = legacyDb
+          .select("SELECT name FROM sqlite_master WHERE type='table'")
+          .map((r) => (r['name'] as String).toLowerCase())
+          .toSet();
 
       int accountsCount = 0;
       int transactionsCount = 0;
@@ -111,144 +117,196 @@ class BackupRestoreService {
         await database.delete(database.currencies).go();
         await database.delete(database.appSettings).go();
 
-        // 2. Import Currencies
-        try {
-          final curRows = legacyDb.select('SELECT _id, code, symbol, fraction_digits FROM currency');
-          final curEntries = <CurrenciesCompanion>[];
-          for (final row in curRows) {
-            curEntries.add(CurrenciesCompanion.insert(
-              id: Value(row['_id'] as int),
-              code: (row['code'] ?? 'INR') as String,
-              symbol: Value(row['symbol'] as String?),
-              fractionDigits: Value((row['fraction_digits'] as int?) ?? 2),
+        // 2. Import Currencies (if currency table exists)
+        if (tableNames.contains('currency')) {
+          try {
+            final curRows = legacyDb.select('SELECT * FROM currency');
+            final curEntries = <CurrenciesCompanion>[];
+            for (final row in curRows) {
+              final id = (row['_id'] ?? row['id']) as int?;
+              final code = (row['code'] as String?) ?? 'INR';
+              final symbol = row['symbol'] as String?;
+              final frac = (row['fraction_digits'] as int?) ?? 2;
+
+              curEntries.add(CurrenciesCompanion.insert(
+                id: id != null ? Value(id) : const Value.absent(),
+                code: code,
+                symbol: Value(symbol),
+                fractionDigits: Value(frac),
+              ));
+            }
+            if (curEntries.isNotEmpty) {
+              await database.batch((b) => b.insertAll(database.currencies, curEntries));
+            }
+          } catch (_) {}
+        }
+
+        // 3. Import Accounts (if accounts table exists)
+        if (tableNames.contains('accounts')) {
+          final accRows = legacyDb.select('SELECT * FROM accounts');
+          final accEntries = <AccountsCompanion>[];
+          for (final row in accRows) {
+            final id = (row['_id'] ?? row['id']) as int;
+            final label = (row['label'] ?? row['name'] ?? 'Account $id') as String;
+            final openingBal = (row['opening_balance'] as int?) ?? 0;
+            final desc = row['description'] as String?;
+            final cur = (row['currency'] as String?) ?? 'INR';
+            final color = (row['color'] as int?) ?? -16738680;
+            final grouping = (row['grouping'] as String?) ?? 'MONTH';
+            final balType = (row['balance_type'] as String?) ?? 'CURRENT';
+            final uuid = row['uuid'] as String?;
+            final exclude = row['exclude_from_totals'] == 1;
+            final sealed = row['sealed'] == 1;
+            final sortKey = (row['sort_key'] as int?) ?? 0;
+
+            accEntries.add(AccountsCompanion.insert(
+              id: Value(id),
+              label: label,
+              openingBalance: Value(openingBal),
+              description: Value(desc),
+              currency: Value(cur),
+              color: Value(color),
+              grouping: Value(grouping),
+              balanceType: Value(balType),
+              uuid: Value(uuid),
+              excludeFromTotals: Value(exclude),
+              sealed: Value(sealed),
+              sortKey: Value(sortKey),
             ));
           }
-          await database.batch((b) => b.insertAll(database.currencies, curEntries));
-        } catch (_) {}
-
-        // 3. Import Accounts
-        final accRows = legacyDb.select(
-          'SELECT _id, label, opening_balance, description, currency, color, grouping, balance_type, uuid, exclude_from_totals, sealed, sort_key FROM accounts'
-        );
-        final accEntries = <AccountsCompanion>[];
-        for (final row in accRows) {
-          accEntries.add(AccountsCompanion.insert(
-            id: Value(row['_id'] as int),
-            label: (row['label'] ?? '') as String,
-            openingBalance: Value((row['opening_balance'] as int?) ?? 0),
-            description: Value(row['description'] as String?),
-            currency: Value((row['currency'] ?? 'INR') as String),
-            color: Value((row['color'] as int?) ?? -16738680),
-            grouping: Value((row['grouping'] ?? 'MONTH') as String),
-            balanceType: Value((row['balance_type'] ?? 'CURRENT') as String),
-            uuid: Value(row['uuid'] as String?),
-            excludeFromTotals: Value((row['exclude_from_totals'] == 1)),
-            sealed: Value((row['sealed'] == 1)),
-            sortKey: Value((row['sort_key'] as int?) ?? 0),
-          ));
+          if (accEntries.isNotEmpty) {
+            await database.batch((b) => b.insertAll(database.accounts, accEntries));
+            accountsCount = accEntries.length;
+          }
         }
-        await database.batch((b) => b.insertAll(database.accounts, accEntries));
-        accountsCount = accEntries.length;
 
-        // 4. Import Categories
-        try {
-          final catRows = legacyDb.select(
-            'SELECT _id, label, parent_id, color, icon, type, uuid FROM categories'
-          );
-          final catEntries = <CategoriesCompanion>[];
-          for (final row in catRows) {
-            catEntries.add(CategoriesCompanion.insert(
-              id: Value(row['_id'] as int),
-              label: (row['label'] ?? '') as String,
+        // 4. Import Categories (if categories table exists)
+        if (tableNames.contains('categories')) {
+          try {
+            final catRows = legacyDb.select('SELECT * FROM categories');
+            final catEntries = <CategoriesCompanion>[];
+            for (final row in catRows) {
+              final id = (row['_id'] ?? row['id']) as int;
+              final label = (row['label'] ?? row['name'] ?? '') as String;
+              final parentId = row['parent_id'] as int?;
+              final color = row['color'] as int?;
+              final icon = row['icon'] as String?;
+              final type = (row['type'] as int?) ?? 0;
+              final uuid = row['uuid'] as String?;
+
+              catEntries.add(CategoriesCompanion.insert(
+                id: Value(id),
+                label: label,
+                parentId: Value(parentId),
+                color: Value(color),
+                icon: Value(icon),
+                type: Value(type),
+                uuid: Value(uuid),
+              ));
+            }
+            if (catEntries.isNotEmpty) {
+              await database.batch((b) => b.insertAll(database.categories, catEntries));
+              categoriesCount = catEntries.length;
+            }
+          } catch (_) {}
+        }
+
+        // 5. Import Payees (if payee table exists)
+        if (tableNames.contains('payee')) {
+          try {
+            final payeeRows = legacyDb.select('SELECT * FROM payee');
+            final payeeEntries = <PayeesCompanion>[];
+            for (final row in payeeRows) {
+              final id = (row['_id'] ?? row['id']) as int;
+              final name = (row['name'] ?? '') as String;
+              final shortName = row['short_name'] as String?;
+              final iban = row['iban'] as String?;
+              final bic = row['bic'] as String?;
+
+              payeeEntries.add(PayeesCompanion.insert(
+                id: Value(id),
+                name: name,
+                shortName: Value(shortName),
+                iban: Value(iban),
+                bic: Value(bic),
+              ));
+            }
+            if (payeeEntries.isNotEmpty) {
+              await database.batch((b) => b.insertAll(database.payees, payeeEntries));
+              payeesCount = payeeEntries.length;
+            }
+          } catch (_) {}
+        }
+
+        // 6. Import Payment Methods (if paymentmethods table exists)
+        if (tableNames.contains('paymentmethods')) {
+          try {
+            final pmRows = legacyDb.select('SELECT * FROM paymentmethods');
+            final pmEntries = <PaymentMethodsCompanion>[];
+            for (final row in pmRows) {
+              final id = (row['_id'] ?? row['id']) as int;
+              final label = (row['label'] ?? '') as String;
+              final type = (row['type'] as int?) ?? 0;
+              final icon = row['icon'] as String?;
+
+              pmEntries.add(PaymentMethodsCompanion.insert(
+                id: Value(id),
+                label: label,
+                type: Value(type),
+                icon: Value(icon),
+              ));
+            }
+            if (pmEntries.isNotEmpty) {
+              await database.batch((b) => b.insertAll(database.paymentMethods, pmEntries));
+            }
+          } catch (_) {}
+        }
+
+        // 7. Import Transactions (if transactions table exists)
+        if (tableNames.contains('transactions')) {
+          final txRows = legacyDb.select('SELECT * FROM transactions');
+          final txEntries = <TransactionsCompanion>[];
+          for (final row in txRows) {
+            final id = (row['_id'] ?? row['id']) as int;
+            final amt = (row['amount'] as int?) ?? 0;
+            if (amt < 0) {
+              totalExpenses += -amt;
+            } else {
+              totalIncome += amt;
+            }
+
+            final dateSecs = (row['date'] as int?) ?? 0;
+            final valueDateSecs = (row['value_date'] as int?) ?? dateSecs;
+
+            txEntries.add(TransactionsCompanion.insert(
+              id: Value(id),
+              comment: Value(row['comment'] as String?),
+              date: DateTime.fromMillisecondsSinceEpoch(dateSecs * 1000),
+              valueDate: DateTime.fromMillisecondsSinceEpoch(valueDateSecs * 1000),
+              amount: amt,
+              catId: Value(row['cat_id'] as int?),
+              accountId: (row['account_id'] as int?) ?? 1,
+              payeeId: Value(row['payee_id'] as int?),
+              transferPeer: Value(row['transfer_peer'] as int?),
+              transferAccount: Value(row['transfer_account'] as int?),
+              methodId: Value(row['method_id'] as int?),
               parentId: Value(row['parent_id'] as int?),
-              color: Value(row['color'] as int?),
-              icon: Value(row['icon'] as String?),
-              type: Value((row['type'] as int?) ?? 0),
+              status: Value((row['status'] as int?) ?? 0),
+              crStatus: Value((row['cr_status'] as String?) ?? 'RECONCILED'),
+              number: Value(row['number'] as String?),
               uuid: Value(row['uuid'] as String?),
+              debtId: Value(row['debt_id'] as int?),
             ));
           }
-          await database.batch((b) => b.insertAll(database.categories, catEntries));
-          categoriesCount = catEntries.length;
-        } catch (_) {}
-
-        // 5. Import Payees
-        try {
-          final payeeRows = legacyDb.select(
-            'SELECT _id, name, short_name, iban, bic FROM payee'
-          );
-          final payeeEntries = <PayeesCompanion>[];
-          for (final row in payeeRows) {
-            payeeEntries.add(PayeesCompanion.insert(
-              id: Value(row['_id'] as int),
-              name: (row['name'] ?? '') as String,
-              shortName: Value(row['short_name'] as String?),
-              iban: Value(row['iban'] as String?),
-              bic: Value(row['bic'] as String?),
-            ));
+          if (txEntries.isNotEmpty) {
+            await database.batch((b) => b.insertAll(database.transactions, txEntries));
+            transactionsCount = txEntries.length;
           }
-          await database.batch((b) => b.insertAll(database.payees, payeeEntries));
-          payeesCount = payeeEntries.length;
-        } catch (_) {}
-
-        // 6. Import Payment Methods
-        try {
-          final pmRows = legacyDb.select(
-            'SELECT _id, label, type, icon FROM paymentmethods'
-          );
-          final pmEntries = <PaymentMethodsCompanion>[];
-          for (final row in pmRows) {
-            pmEntries.add(PaymentMethodsCompanion.insert(
-              id: Value(row['_id'] as int),
-              label: (row['label'] ?? '') as String,
-              type: Value((row['type'] as int?) ?? 0),
-              icon: Value(row['icon'] as String?),
-            ));
-          }
-          await database.batch((b) => b.insertAll(database.paymentMethods, pmEntries));
-        } catch (_) {}
-
-        // 7. Import Transactions
-        final txRows = legacyDb.select(
-          'SELECT _id, comment, date, value_date, amount, cat_id, account_id, payee_id, transfer_peer, transfer_account, method_id, parent_id, status, cr_status, number, uuid, debt_id FROM transactions'
-        );
-        final txEntries = <TransactionsCompanion>[];
-        for (final row in txRows) {
-          final amt = (row['amount'] as int?) ?? 0;
-          if (amt < 0) {
-            totalExpenses += -amt;
-          } else {
-            totalIncome += amt;
-          }
-
-          final dateSecs = (row['date'] as int?) ?? 0;
-          final valueDateSecs = (row['value_date'] as int?) ?? dateSecs;
-
-          txEntries.add(TransactionsCompanion.insert(
-            id: Value(row['_id'] as int),
-            comment: Value(row['comment'] as String?),
-            date: DateTime.fromMillisecondsSinceEpoch(dateSecs * 1000),
-            valueDate: DateTime.fromMillisecondsSinceEpoch(valueDateSecs * 1000),
-            amount: amt,
-            catId: Value(row['cat_id'] as int?),
-            accountId: row['account_id'] as int,
-            payeeId: Value(row['payee_id'] as int?),
-            transferPeer: Value(row['transfer_peer'] as int?),
-            transferAccount: Value(row['transfer_account'] as int?),
-            methodId: Value(row['method_id'] as int?),
-            parentId: Value(row['parent_id'] as int?),
-            status: Value((row['status'] as int?) ?? 0),
-            crStatus: Value((row['cr_status'] as String?) ?? 'RECONCILED'),
-            number: Value(row['number'] as String?),
-            uuid: Value(row['uuid'] as String?),
-            debtId: Value(row['debt_id'] as int?),
-          ));
         }
-        await database.batch((b) => b.insertAll(database.transactions, txEntries));
-        transactionsCount = txEntries.length;
 
-        // 8. Ingest BACKUP_PREF XML if exists
-        final prefFile = File(p.join(backupDirPath, 'BACKUP_PREF'));
-        if (await prefFile.exists()) {
+        // 8. Ingest preferences XML if present
+        final prefFile = _findPreferencesFile(searchDirPath);
+        if (prefFile != null && await prefFile.exists()) {
           try {
             final xmlString = await prefFile.readAsString();
             final doc = XmlDocument.parse(xmlString);
@@ -263,11 +321,13 @@ class BackupRestoreService {
                 ));
               }
             }
-            await database.batch((b) => b.insertAll(
-              database.appSettings,
-              settingsEntries,
-              mode: InsertMode.insertOrReplace,
-            ));
+            if (settingsEntries.isNotEmpty) {
+              await database.batch((b) => b.insertAll(
+                database.appSettings,
+                settingsEntries,
+                mode: InsertMode.insertOrReplace,
+              ));
+            }
           } catch (_) {}
         }
       });
@@ -303,5 +363,77 @@ class BackupRestoreService {
         } catch (_) {}
       }
     }
+  }
+
+  /// Recursively discovers any SQLite database file in a folder
+  File? _findSqliteDatabase(String dirPath, {String? directPath}) {
+    if (directPath != null) {
+      final f = File(directPath);
+      if (f.existsSync() && _isSqliteHeader(f)) {
+        return f;
+      }
+    }
+
+    final directBackup = File(p.join(dirPath, 'BACKUP'));
+    if (directBackup.existsSync()) return directBackup;
+
+    final dir = Directory(dirPath);
+    if (!dir.existsSync()) return null;
+
+    final entities = dir.listSync(recursive: true);
+
+    // 1. Check for filename BACKUP or *.db or *.sqlite
+    for (final entity in entities) {
+      if (entity is File) {
+        final name = p.basename(entity.path).toLowerCase();
+        if (name == 'backup' || name.endsWith('.db') || name.endsWith('.sqlite')) {
+          if (_isSqliteHeader(entity)) {
+            return entity;
+          }
+        }
+      }
+    }
+
+    // 2. Fallback: check any file for SQLite magic header
+    for (final entity in entities) {
+      if (entity is File && entity.lengthSync() >= 16) {
+        if (_isSqliteHeader(entity)) {
+          return entity;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  bool _isSqliteHeader(File file) {
+    try {
+      if (file.lengthSync() < 16) return false;
+      final raf = file.openSync(mode: FileMode.read);
+      final bytes = raf.readSync(16);
+      raf.closeSync();
+      return String.fromCharCodes(bytes.take(15)) == 'SQLite format 3';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Discovers preferences XML file
+  File? _findPreferencesFile(String dirPath) {
+    final direct = File(p.join(dirPath, 'BACKUP_PREF'));
+    if (direct.existsSync()) return direct;
+
+    final dir = Directory(dirPath);
+    if (!dir.existsSync()) return null;
+
+    for (final entity in dir.listSync(recursive: true)) {
+      if (entity is File) {
+        final name = p.basename(entity.path).toLowerCase();
+        if (name == 'backup_pref' || name.endsWith('_pref') || name.endsWith('.xml')) {
+          return entity;
+        }
+      }
+    }
+    return null;
   }
 }

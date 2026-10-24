@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:drift/native.dart';
+import 'package:archive/archive_io.dart';
 import 'package:expense_tracker/core/database/database.dart';
 import 'package:expense_tracker/core/services/backup_restore_service.dart';
 
@@ -59,5 +61,23 @@ void main() {
     expect(settings.isNotEmpty, isTrue);
     final currencySetting = settings.firstWhere((s) => s.key == 'last_original_currency');
     expect(currencySetting.value, equals('INR'));
+  });
+
+  test('Successfully restore from a zipped backup archive (.zip)', () async {
+    // Create a temporary zip file
+    final tempDir = await Directory.systemTemp.createTemp('zip_test_');
+    final zipFile = File('${tempDir.path}/test_backup.zip');
+
+    final encoder = ZipFileEncoder();
+    await encoder.zipDirectory(Directory('myexpenses-backup-20261006-094710'), filename: zipFile.path);
+
+    // Restore from the created zip file
+    final result = await restoreService.restoreBackup(zipFile.path);
+    expect(result.success, isTrue, reason: result.errorMessage);
+    expect(result.transactionsCount, equals(470));
+    expect(result.accountsCount, equals(4));
+    expect(result.netBalance, equals(-32633600));
+
+    await tempDir.delete(recursive: true);
   });
 }
