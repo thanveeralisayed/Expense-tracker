@@ -17,6 +17,7 @@ import '../../accounts/presentation/create_account_dialog.dart';
 import '../../categories/presentation/category_list_screen.dart';
 import '../../analytics/presentation/analytics_screen.dart';
 import '../../budgets/presentation/budget_screen.dart';
+import '../../settings/presentation/settings_screen.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -169,7 +170,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           IconButton(
             tooltip: 'Settings',
             icon: const Icon(Icons.tune_rounded),
-            onPressed: () {},
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => SettingsScreen(
+                    onRestoreBackupTap: () => _showRestoreDialog(),
+                  ),
+                ),
+              );
+            },
           ),
         ],
       ),

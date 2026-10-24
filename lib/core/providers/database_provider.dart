@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../database/database.dart';
 import '../services/backup_restore_service.dart';
@@ -150,4 +151,7 @@ final categoryBudgetsProgressProvider = Provider<List<BudgetProgress>>((ref) {
 
 // Analytics timeframe provider
 final analyticsTimeframeProvider = StateProvider<AnalyticsTimeframe>((ref) => AnalyticsTimeframe.thisMonth);
+
+// Theme mode provider (system, dark, light)
+final themeModeProvider = StateProvider<ThemeMode>((ref) => ThemeMode.system);
 
