@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/database/database.dart';
 import '../../../core/providers/database_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/currency_formatter.dart';
@@ -30,6 +31,9 @@ class _AutoCategorizeWizardSheetState extends ConsumerState<AutoCategorizeWizard
   bool _isLoading = true;
   bool _isApplying = false;
   List<CategorizeSuggestion> _suggestions = [];
+  List<Transaction> _unmatched = [];
+  List<Category> _categories = [];
+  final Map<int, int?> _unmatchedCategories = {};
   int _totalUncategorized = 0;
 
   @override
@@ -49,26 +53,36 @@ class _AutoCategorizeWizardSheetState extends ConsumerState<AutoCategorizeWizard
       availableCategories: categories,
     );
 
+    final matchedTxIds = matches.map((m) => m.transaction.id).toSet();
+    final unmatched = uncategorized.where((tx) => !matchedTxIds.contains(tx.id)).toList();
+
     if (mounted) {
       setState(() {
         _totalUncategorized = uncategorized.length;
         _suggestions = matches;
+        _unmatched = unmatched;
+        _categories = categories;
         _isLoading = false;
       });
     }
   }
 
   Future<void> _applyBatch() async {
-    final selected = _suggestions.where((s) => s.isSelected).toList();
-    if (selected.isEmpty) return;
+    final map = <int, int>{};
+    for (final item in _suggestions) {
+      if (item.isSelected) {
+        map[item.transaction.id] = item.matchedCategory.id;
+      }
+    }
+    for (final entry in _unmatchedCategories.entries) {
+      if (entry.value != null) {
+        map[entry.key] = entry.value!;
+      }
+    }
+    if (map.isEmpty) return;
 
     setState(() => _isApplying = true);
     final db = ref.read(databaseProvider);
-
-    final map = <int, int>{};
-    for (final item in selected) {
-      map[item.transaction.id] = item.matchedCategory.id;
-    }
 
     try {
       await db.batchUpdateTransactionCategories(map);
@@ -77,7 +91,7 @@ class _AutoCategorizeWizardSheetState extends ConsumerState<AutoCategorizeWizard
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: AppColors.income,
-            content: Text('Successfully categorized ${selected.length} transactions!'),
+            content: Text('Successfully categorized ${map.length} transactions!'),
           ),
         );
       }
@@ -103,7 +117,22 @@ class _AutoCategorizeWizardSheetState extends ConsumerState<AutoCategorizeWizard
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final selectedCount = _suggestions.where((s) => s.isSelected).length;
+    final selectedMatchesCount = _suggestions.where((s) => s.isSelected).length;
+    final manualSelectedCount = _unmatchedCategories.values.where((c) => c != null).length;
+    final totalToApply = selectedMatchesCount + manualSelectedCount;
+
+    String subtitleText;
+    if (_isLoading) {
+      subtitleText = 'Scanning transaction notes...';
+    } else if (_totalUncategorized == 0) {
+      subtitleText = 'All transactions categorized';
+    } else if (_suggestions.isNotEmpty && _unmatched.isEmpty) {
+      subtitleText = 'Found ${_suggestions.length} automatic ${_suggestions.length == 1 ? 'match' : 'matches'}';
+    } else if (_suggestions.isNotEmpty && _unmatched.isNotEmpty) {
+      subtitleText = 'Found ${_suggestions.length} ${_suggestions.length == 1 ? 'match' : 'matches'} (${_unmatched.length} manual review)';
+    } else {
+      subtitleText = '$_totalUncategorized uncategorized ${_totalUncategorized == 1 ? 'entry' : 'entries'} found';
+    }
 
     return DraggableScrollableSheet(
       expand: false,
@@ -148,9 +177,7 @@ class _AutoCategorizeWizardSheetState extends ConsumerState<AutoCategorizeWizard
                         style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                       ),
                       Text(
-                        _isLoading
-                            ? 'Scanning transaction notes...'
-                            : 'Found ${_suggestions.length} matches across $_totalUncategorized uncategorized entries',
+                        subtitleText,
                         style: TextStyle(
                           fontSize: 12,
                           color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
@@ -161,8 +188,8 @@ class _AutoCategorizeWizardSheetState extends ConsumerState<AutoCategorizeWizard
                 ),
                 if (!_isLoading && _suggestions.isNotEmpty)
                   TextButton(
-                    onPressed: () => _toggleAll(selectedCount != _suggestions.length),
-                    child: Text(selectedCount == _suggestions.length ? 'Deselect All' : 'Select All'),
+                    onPressed: () => _toggleAll(selectedMatchesCount != _suggestions.length),
+                    child: Text(selectedMatchesCount == _suggestions.length ? 'Deselect All' : 'Select All'),
                   ),
               ],
             ),
@@ -173,30 +200,26 @@ class _AutoCategorizeWizardSheetState extends ConsumerState<AutoCategorizeWizard
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : _suggestions.isEmpty
+                : _totalUncategorized == 0
                     ? Center(
                         child: Padding(
                           padding: const EdgeInsets.all(32),
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(
+                              const Icon(
                                 Icons.check_circle_outline_rounded,
                                 size: 56,
-                                color: _totalUncategorized == 0 ? AppColors.income : AppColors.primary,
+                                color: AppColors.income,
                               ),
                               const SizedBox(height: 16),
-                              Text(
-                                _totalUncategorized == 0
-                                    ? 'All transactions categorized!'
-                                    : 'No automatic matches found',
-                                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                              const Text(
+                                'All transactions categorized!',
+                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                _totalUncategorized == 0
-                                    ? 'Every single transaction already has an assigned category.'
-                                    : 'You can assign categories directly from transaction details or create custom rules.',
+                                'Every single transaction already has an assigned category.',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
@@ -206,101 +229,216 @@ class _AutoCategorizeWizardSheetState extends ConsumerState<AutoCategorizeWizard
                           ),
                         ),
                       )
-                    : ListView.separated(
+                    : ListView(
                         controller: scrollController,
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        itemCount: _suggestions.length,
-                        separatorBuilder: (_, _) => const Divider(height: 1),
-                        itemBuilder: (ctx, index) {
-                          final item = _suggestions[index];
-                          final cat = item.matchedCategory;
-                          final tx = item.transaction;
-                          final dateStr = DateFormat('dd MMM yyyy').format(tx.date);
-
-                          return CheckboxListTile(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            value: item.isSelected,
-                            onChanged: (val) {
-                              setState(() => item.isSelected = val ?? false);
-                            },
-                            title: Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    tx.comment ?? 'No note',
-                                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  CurrencyFormatter.formatPaise(tx.amount),
-                                  style: TextStyle(
+                        children: [
+                          if (_suggestions.isNotEmpty) ...[
+                            if (_unmatched.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(left: 8, bottom: 8, top: 4),
+                                child: Text(
+                                  'SUGGESTED MATCHES (${_suggestions.length})',
+                                  style: const TextStyle(
+                                    fontSize: 12,
                                     fontWeight: FontWeight.w700,
-                                    fontSize: 13,
-                                    color: tx.amount < 0 ? AppColors.expense : AppColors.income,
+                                    letterSpacing: 0.5,
+                                    color: AppColors.primary,
                                   ),
                                 ),
-                              ],
-                            ),
-                            subtitle: Padding(
-                              padding: const EdgeInsets.only(top: 6),
-                              child: Row(
-                                children: [
-                                  Text(
-                                    dateStr,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                              ),
+                            ..._suggestions.map((item) {
+                              final cat = item.matchedCategory;
+                              final tx = item.transaction;
+                              final dateStr = DateFormat('dd MMM yyyy').format(tx.date);
+
+                              return CheckboxListTile(
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                value: item.isSelected,
+                                onChanged: (val) {
+                                  setState(() => item.isSelected = val ?? false);
+                                },
+                                title: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        tx.comment?.trim().isNotEmpty == true ? tx.comment!.trim() : 'No note',
+                                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  const Icon(Icons.arrow_forward_rounded, size: 12),
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                    decoration: BoxDecoration(
-                                      color: Color(cat.color ?? 0xFF10B981).withValues(alpha: 0.15),
-                                      borderRadius: BorderRadius.circular(8),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      CurrencyFormatter.formatPaise(tx.amount),
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 13,
+                                        color: tx.amount < 0 ? AppColors.expense : AppColors.income,
+                                      ),
                                     ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          CategoryIconHelper.getIcon(cat.icon),
-                                          size: 13,
-                                          color: Color(cat.color ?? 0xFF10B981),
+                                  ],
+                                ),
+                                subtitle: Padding(
+                                  padding: const EdgeInsets.only(top: 6),
+                                  child: Row(
+                                    children: [
+                                      Text(
+                                        dateStr,
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
                                         ),
-                                        const SizedBox(width: 4),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      const Icon(Icons.arrow_forward_rounded, size: 12),
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: Color(cat.color ?? 0xFF10B981).withValues(alpha: 0.15),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              CategoryIconHelper.getIcon(cat.icon),
+                                              size: 13,
+                                              color: Color(cat.color ?? 0xFF10B981),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              cat.label,
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w700,
+                                                color: Color(cat.color ?? 0xFF10B981),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }),
+                          ],
+
+                          if (_unmatched.isNotEmpty) ...[
+                            Padding(
+                              padding: EdgeInsets.only(
+                                left: 8,
+                                top: _suggestions.isNotEmpty ? 16 : 4,
+                                bottom: 8,
+                              ),
+                              child: Text(
+                                'UNMATCHED ENTRIES (${_unmatched.length})',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.5,
+                                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                                ),
+                              ),
+                            ),
+                            ..._unmatched.map((tx) {
+                              final dateStr = DateFormat('dd MMM yyyy').format(tx.date);
+                              final expectedType = tx.amount < 0 ? 0 : 1;
+                              final typeCategories = _categories.where((c) => c.type == expectedType).toList();
+                              final selectedCatId = _unmatchedCategories[tx.id];
+
+                              return Container(
+                                margin: const EdgeInsets.symmetric(vertical: 4),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: selectedCatId != null
+                                        ? AppColors.primary.withValues(alpha: 0.5)
+                                        : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            tx.comment?.trim().isNotEmpty == true ? tx.comment!.trim() : 'Uncategorized Entry',
+                                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
                                         Text(
-                                          cat.label,
+                                          CurrencyFormatter.formatPaise(tx.amount),
                                           style: TextStyle(
-                                            fontSize: 11,
                                             fontWeight: FontWeight.w700,
-                                            color: Color(cat.color ?? 0xFF10B981),
+                                            fontSize: 13,
+                                            color: tx.amount < 0 ? AppColors.expense : AppColors.income,
                                           ),
                                         ),
                                       ],
                                     ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
+                                    const SizedBox(height: 6),
+                                    Row(
+                                      children: [
+                                        Text(
+                                          dateStr,
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                                          ),
+                                        ),
+                                        const Spacer(),
+                                        DropdownButton<int>(
+                                          value: selectedCatId,
+                                          hint: const Text('Choose Category', style: TextStyle(fontSize: 12)),
+                                          underline: const SizedBox.shrink(),
+                                          isDense: true,
+                                          items: typeCategories.map((cat) {
+                                            final color = Color(cat.color ?? 0xFF10B981);
+                                            return DropdownMenuItem<int>(
+                                              value: cat.id,
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Icon(CategoryIconHelper.getIcon(cat.icon), size: 14, color: color),
+                                                  const SizedBox(width: 6),
+                                                  Text(cat.label, style: const TextStyle(fontSize: 12)),
+                                                ],
+                                              ),
+                                            );
+                                          }).toList(),
+                                          onChanged: (val) {
+                                            setState(() => _unmatchedCategories[tx.id] = val);
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }),
+                          ],
+                        ],
                       ),
           ),
 
           // Bottom Action Bar
-          if (!_isLoading && _suggestions.isNotEmpty)
+          if (!_isLoading && totalToApply > 0)
             SafeArea(
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
-                    onPressed: selectedCount > 0 && !_isApplying ? _applyBatch : null,
+                    onPressed: !_isApplying ? _applyBatch : null,
                     style: FilledButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -308,7 +446,7 @@ class _AutoCategorizeWizardSheetState extends ConsumerState<AutoCategorizeWizard
                     icon: _isApplying
                         ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                         : const Icon(Icons.check_circle_outline_rounded),
-                    label: Text('Apply to $selectedCount Transactions'),
+                    label: Text('Apply to $totalToApply ${totalToApply == 1 ? 'Transaction' : 'Transactions'}'),
                   ),
                 ),
               ),

@@ -275,7 +275,15 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
                       icon: Icons.arrow_downward_rounded,
                       color: AppColors.expense,
                       isSelected: _type == TransactionType.expense,
-                      onTap: () => setState(() => _type = TransactionType.expense),
+                      onTap: () {
+                        if (_type != TransactionType.expense) {
+                          setState(() {
+                            _type = TransactionType.expense;
+                            _selectedCatId = null;
+                            _userManuallySelectedCategory = false;
+                          });
+                        }
+                      },
                     ),
                     const SizedBox(width: 8),
                     _TypeTab(
@@ -283,7 +291,15 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
                       icon: Icons.arrow_upward_rounded,
                       color: AppColors.income,
                       isSelected: _type == TransactionType.income,
-                      onTap: () => setState(() => _type = TransactionType.income),
+                      onTap: () {
+                        if (_type != TransactionType.income) {
+                          setState(() {
+                            _type = TransactionType.income;
+                            _selectedCatId = null;
+                            _userManuallySelectedCategory = false;
+                          });
+                        }
+                      },
                     ),
                     const SizedBox(width: 8),
                     _TypeTab(
@@ -291,7 +307,15 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
                       icon: Icons.swap_horiz_rounded,
                       color: AppColors.transfer,
                       isSelected: _type == TransactionType.transfer,
-                      onTap: () => setState(() => _type = TransactionType.transfer),
+                      onTap: () {
+                        if (_type != TransactionType.transfer) {
+                          setState(() {
+                            _type = TransactionType.transfer;
+                            _selectedCatId = null;
+                            _userManuallySelectedCategory = false;
+                          });
+                        }
+                      },
                     ),
                     if (widget.initialTransaction == null) ...[
                       const SizedBox(width: 8),

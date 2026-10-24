@@ -98,10 +98,18 @@ class AppDatabase extends _$AppDatabase {
     return counts;
   }
 
-  // Get uncategorized transactions
+  // Get uncategorized transactions (excluding transfers, split parents, and opening balance entries)
   Future<List<Transaction>> getUncategorizedTransactions() {
     return (select(transactions)
-          ..where((t) => t.catId.isNull() & t.parentId.isNull())
+          ..where((t) =>
+              t.catId.isNull() &
+              t.parentId.isNull() &
+              t.transferAccount.isNull() &
+              t.transferPeer.isNull() &
+              t.status.equals(0) &
+              (t.comment.isNull() |
+                  (t.comment.like('Opening Balance%').not() &
+                      t.comment.like('opening balance%').not())))
           ..orderBy([(t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc)]))
         .get();
   }

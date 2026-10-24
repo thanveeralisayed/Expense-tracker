@@ -115,6 +115,27 @@ class SmartCategorizerEngine {
       final normalized = tx.comment!.toLowerCase();
 
       bool found = false;
+
+      // 1. Direct category label match
+      for (final cat in availableCategories) {
+        if (cat.label.trim().isNotEmpty &&
+            normalized.contains(cat.label.toLowerCase())) {
+          suggestions.add(
+            CategorizeSuggestion(
+              transaction: tx,
+              matchedCategory: cat,
+              matchedKeyword: cat.label,
+              confidence: 0.99,
+              isSelected: true,
+            ),
+          );
+          found = true;
+          break;
+        }
+      }
+      if (found) continue;
+
+      // 2. Rule keyword matching
       for (final entry in _defaultRules.entries) {
         if (found) break;
         final categoryLabel = entry.key;
