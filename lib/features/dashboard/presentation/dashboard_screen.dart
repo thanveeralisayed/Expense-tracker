@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -11,6 +10,9 @@ import 'widgets/total_balance_card.dart';
 import 'widgets/account_card_carousel.dart';
 import '../../transactions/presentation/widgets/transaction_list_tile.dart';
 import '../../transactions/presentation/widgets/sticky_date_header.dart';
+import '../../transactions/presentation/add_transaction_sheet.dart';
+import '../../transactions/presentation/transaction_detail_screen.dart';
+import '../../transactions/presentation/transaction_search_delegate.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -117,6 +119,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       appBar: AppBar(
         title: const Text('My Expenses'),
         actions: [
+          IconButton(
+            tooltip: 'Search Transactions',
+            icon: const Icon(Icons.search_rounded),
+            onPressed: () {
+              showSearch(
+                context: context,
+                delegate: TransactionSearchDelegate(ref),
+              );
+            },
+          ),
           IconButton(
             tooltip: 'Restore Backup',
             icon: _isRestoring
@@ -238,7 +250,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           (tx) => TransactionListTile(
                             transaction: tx,
                             account: accountsMap[tx.accountId],
-                            onTap: () {},
+                            onTap: () {
+                              showModalBottomSheet(
+                                context: context,
+                                isScrollControlled: true,
+                                builder: (_) => TransactionDetailSheet(
+                                  transaction: tx,
+                                  account: accountsMap[tx.accountId],
+                                  transferAccount: tx.transferAccount != null ? accountsMap[tx.transferAccount] : null,
+                                ),
+                              );
+                            },
                           ),
                         ),
                       ],
@@ -260,7 +282,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {},
+        onPressed: () {
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            builder: (_) => const AddTransactionSheet(),
+          );
+        },
         icon: const Icon(Icons.add_rounded),
         label: const Text('Add Entry'),
       ),

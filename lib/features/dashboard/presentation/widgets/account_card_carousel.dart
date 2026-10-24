@@ -56,7 +56,7 @@ class AccountCardCarousel extends ConsumerWidget {
         );
       },
       loading: () => const SizedBox(height: 94),
-      error: (_, __) => const SizedBox.shrink(),
+      error: (err, stack) => const SizedBox.shrink(),
     );
   }
 }

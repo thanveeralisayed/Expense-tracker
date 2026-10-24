@@ -332,7 +332,7 @@ class BackupRestoreService {
         }
       });
 
-      legacyDb.dispose();
+      legacyDb.close();
 
       return RestoreResult(
         success: true,
