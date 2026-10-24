@@ -37,9 +37,15 @@ class AccountCardCarousel extends ConsumerWidget {
                   children: [
                     Icon(Icons.add_circle_outline_rounded, color: AppColors.primary, size: 20),
                     SizedBox(width: 8),
-                    Text(
-                      '+ Create Your First Account (e.g. Cash, Bank)',
-                      style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.primary, fontSize: 13),
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          '+ Create Your First Account (e.g. Cash, Bank)',
+                          style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.primary, fontSize: 13),
+                          maxLines: 1,
+                        ),
+                      ),
                     ),
                   ],
                 ),
