@@ -9,9 +9,12 @@ class AppColors {
 
   // Semantics
   static const Color expense = Color(0xFFEF4444); // Vibrant Red
+  static const Color expenseRed = expense;
   static const Color expenseContainer = Color(0xFF451A1A);
   static const Color income = Color(0xFF10B981); // Emerald Green
+  static const Color incomeGreen = income;
   static const Color incomeContainer = Color(0xFF064E3B);
+  static const Color accentWarning = Color(0xFFF59E0B); // Amber Warning
   static const Color transfer = Color(0xFF3B82F6); // Electric Blue
   static const Color transferContainer = Color(0xFF1E3A8A);
 

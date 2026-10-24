@@ -326,6 +326,35 @@ class AppDatabase extends _$AppDatabase {
       return parentId;
     });
   }
+
+  // --- App Settings & Budgets ---
+  Future<String?> getSetting(String key) async {
+    final entry = await (select(appSettings)..where((s) => s.key.equals(key))).getSingleOrNull();
+    return entry?.value;
+  }
+
+  Future<void> setSetting(String key, String? value) async {
+    await into(appSettings).insertOnConflictUpdate(
+      AppSettingsCompanion(
+        key: Value(key),
+        value: Value(value),
+      ),
+    );
+  }
+
+  Future<void> deleteSetting(String key) async {
+    await (delete(appSettings)..where((s) => s.key.equals(key))).go();
+  }
+
+  Stream<String?> watchSetting(String key) {
+    return (select(appSettings)..where((s) => s.key.equals(key)))
+        .watchSingleOrNull()
+        .map((s) => s?.value);
+  }
+
+  Stream<List<AppSetting>> watchAllSettings() {
+    return select(appSettings).watch();
+  }
 }
 
 LazyDatabase _openConnection() {

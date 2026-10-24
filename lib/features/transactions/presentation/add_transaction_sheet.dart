@@ -333,16 +333,18 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
                     ),
                     const SizedBox(width: 8),
                     Flexible(
-                      child: Text(
-                        _amountExpression.isEmpty ? '0' : _amountExpression,
-                        style: TextStyle(
-                          fontSize: 36,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -1,
-                          color: accentColor,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          _amountExpression.isEmpty ? '0' : _amountExpression,
+                          style: TextStyle(
+                            fontSize: 36,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -1,
+                            color: accentColor,
+                          ),
+                          maxLines: 1,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],

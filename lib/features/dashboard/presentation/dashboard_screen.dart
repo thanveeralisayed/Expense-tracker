@@ -15,6 +15,8 @@ import '../../transactions/presentation/transaction_detail_screen.dart';
 import '../../transactions/presentation/transaction_search_delegate.dart';
 import '../../accounts/presentation/create_account_dialog.dart';
 import '../../categories/presentation/category_list_screen.dart';
+import '../../analytics/presentation/analytics_screen.dart';
+import '../../budgets/presentation/budget_screen.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -326,6 +328,67 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         },
         icon: const Icon(Icons.add_rounded),
         label: const Text('Add Entry'),
+      ),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          border: Border(
+            top: BorderSide(
+              color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+              width: 1,
+            ),
+          ),
+        ),
+        child: NavigationBar(
+          selectedIndex: 0,
+          onDestinationSelected: (index) {
+            if (index == 1) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AnalyticsScreen()),
+              );
+            } else if (index == 2) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const BudgetScreen()),
+              );
+            } else if (index == 3) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CategoryListScreen()),
+              );
+            }
+          },
+          backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+          indicatorColor: AppColors.primary.withOpacity(0.16),
+          elevation: 0,
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.dashboard_outlined),
+              selectedIcon: Icon(Icons.dashboard_rounded, color: AppColors.primary),
+              label: 'Dashboard',
+              tooltip: '',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.insights_outlined),
+              selectedIcon: Icon(Icons.insights_rounded, color: AppColors.primary),
+              label: 'Analytics',
+              tooltip: '',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.savings_outlined),
+              selectedIcon: Icon(Icons.savings_rounded, color: AppColors.primary),
+              label: 'Budgets',
+              tooltip: '',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.category_outlined),
+              selectedIcon: Icon(Icons.category_rounded, color: AppColors.primary),
+              label: 'Categories',
+              tooltip: '',
+            ),
+          ],
+        ),
       ),
     );
   }

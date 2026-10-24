@@ -1,6 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../database/database.dart';
 import '../services/backup_restore_service.dart';
+import '../../features/analytics/domain/analytics_service.dart';
+import '../../features/budgets/domain/budget_models.dart';
+import '../../features/budgets/domain/budget_service.dart';
 
 final databaseProvider = Provider<AppDatabase>((ref) {
   final db = AppDatabase();
@@ -79,4 +82,72 @@ final uncategorizedCountProvider = FutureProvider<int>((ref) async {
   final uncategorized = await db.getUncategorizedTransactions();
   return uncategorized.length;
 });
+
+// Settings stream
+final settingsStreamProvider = StreamProvider<List<AppSetting>>((ref) {
+  final db = ref.watch(databaseProvider);
+  return db.watchAllSettings();
+});
+
+// Parsed budget limits
+final budgetLimitsProvider = Provider<({int? overallLimitPaise, Map<int, int> categoryLimitsPaise})>((ref) {
+  final asyncSettings = ref.watch(settingsStreamProvider);
+  return asyncSettings.when(
+    data: (settings) => BudgetService.parseBudgetLimits(settings),
+    loading: () => (overallLimitPaise: null, categoryLimitsPaise: <int, int>{}),
+    error: (_, _) => (overallLimitPaise: null, categoryLimitsPaise: <int, int>{}),
+  );
+});
+
+// Overall monthly budget progress
+final overallBudgetProgressProvider = Provider<BudgetProgress?>((ref) {
+  final limits = ref.watch(budgetLimitsProvider);
+  if (limits.overallLimitPaise == null) return null;
+
+  final asyncTxs = ref.watch(transactionsStreamProvider);
+  return asyncTxs.when(
+    data: (txs) {
+      final monthExpenses = BudgetService.filterCurrentMonthExpenses(txs);
+      return BudgetService.calculateOverallBudget(
+        limitPaise: limits.overallLimitPaise!,
+        currentMonthExpenses: monthExpenses,
+      );
+    },
+    loading: () => null,
+    error: (_, _) => null,
+  );
+});
+
+// Category monthly budgets progress list
+final categoryBudgetsProgressProvider = Provider<List<BudgetProgress>>((ref) {
+  final limits = ref.watch(budgetLimitsProvider);
+  if (limits.categoryLimitsPaise.isEmpty) return [];
+
+  final asyncTxs = ref.watch(transactionsStreamProvider);
+  final catMap = ref.watch(categoryMapProvider);
+
+  return asyncTxs.when(
+    data: (txs) {
+      final monthExpenses = BudgetService.filterCurrentMonthExpenses(txs);
+      final list = <BudgetProgress>[];
+      for (final entry in limits.categoryLimitsPaise.entries) {
+        list.add(
+          BudgetService.calculateCategoryBudget(
+            catId: entry.key,
+            limitPaise: entry.value,
+            currentMonthExpenses: monthExpenses,
+            categoryMap: catMap,
+          ),
+        );
+      }
+      list.sort((a, b) => b.percentage.compareTo(a.percentage));
+      return list;
+    },
+    loading: () => [],
+    error: (_, _) => [],
+  );
+});
+
+// Analytics timeframe provider
+final analyticsTimeframeProvider = StateProvider<AnalyticsTimeframe>((ref) => AnalyticsTimeframe.thisMonth);
 

@@ -205,6 +205,8 @@ class _CategoryListScreenState extends ConsumerState<CategoryListScreen> with Si
                         Text(
                           '$uncategorizedCount Uncategorized Entries',
                           style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                         Text(
                           'Tap to run auto-categorizer on legacy notes',
@@ -212,6 +214,8 @@ class _CategoryListScreenState extends ConsumerState<CategoryListScreen> with Si
                             fontSize: 11,
                             color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),

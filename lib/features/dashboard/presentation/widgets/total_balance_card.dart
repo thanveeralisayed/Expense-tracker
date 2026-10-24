@@ -94,15 +94,19 @@ class TotalBalanceCard extends ConsumerWidget {
                   ],
                 ),
                 const SizedBox(height: 10),
-                Text(
-                  CurrencyFormatter.formatPaise(net),
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.5,
-                    color: net < 0
-                        ? AppColors.expense
-                        : (net > 0 ? AppColors.income : null),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    CurrencyFormatter.formatPaise(net),
+                    style: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.5,
+                      color: net < 0
+                          ? AppColors.expense
+                          : (net > 0 ? AppColors.income : null),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 18),
