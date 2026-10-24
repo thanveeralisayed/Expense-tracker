@@ -59,7 +59,7 @@ void main() {
     expect(find.text('Transactions'), findsOneWidget);
     expect(find.text('Accounts'), findsOneWidget);
     expect(find.text('Categories'), findsOneWidget);
-    expect(find.text('Version 1.0.0 (Phase 5 Build)'), findsOneWidget);
+    expect(find.text('Version 1.0.0 (Phase 6 Build)'), findsOneWidget);
 
     // 6. Navigate back to Dashboard
     await tester.tap(find.byType(BackButton));

@@ -39,9 +39,10 @@ class BudgetService {
     return (overallLimitPaise: overall, categoryLimitsPaise: catLimits);
   }
 
-  /// Filter transactions for current month expenses (excluding transfers & split children)
+  /// Filter transactions for current month expenses (excluding transfers & optionally including split child allocations)
   static List<Transaction> filterCurrentMonthExpenses(
     List<Transaction> transactions, {
+    bool includeSplits = false,
     DateTime? referenceNow,
   }) {
     final now = referenceNow ?? DateTime.now();
@@ -49,7 +50,8 @@ class BudgetService {
     final startOfNextMonth = DateTime(now.year, now.month + 1, 1);
 
     return transactions.where((t) {
-      if (t.parentId != null) return false;
+      if (!includeSplits && t.parentId != null) return false;
+      if (includeSplits && t.status == 1) return false;
       final isTransfer = t.transferAccount != null || t.transferPeer != null;
       if (isTransfer) return false;
       if (t.amount >= 0) return false; // expenses only

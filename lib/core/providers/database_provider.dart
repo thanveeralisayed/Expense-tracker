@@ -26,11 +26,18 @@ final accountsStreamProvider = StreamProvider<List<Account>>((ref) {
 // Currently selected account ID (null means all accounts)
 final selectedAccountIdProvider = StateProvider<int?>((ref) => null);
 
-// Stream of transactions for currently selected account
+// Stream of transactions for currently selected account (excluding split children for list display)
 final transactionsStreamProvider = StreamProvider<List<Transaction>>((ref) {
   final db = ref.watch(databaseProvider);
   final selectedAccountId = ref.watch(selectedAccountIdProvider);
   return db.watchTransactions(accountId: selectedAccountId);
+});
+
+// Stream of all transactions including split allocations (used by budgets and analytics)
+final allTransactionsStreamProvider = StreamProvider<List<Transaction>>((ref) {
+  final db = ref.watch(databaseProvider);
+  final selectedAccountId = ref.watch(selectedAccountIdProvider);
+  return db.watchTransactions(accountId: selectedAccountId, limit: 1000, includeSplits: true);
 });
 
 // Balances for all accounts mapped by account ID
@@ -124,12 +131,12 @@ final categoryBudgetsProgressProvider = Provider<List<BudgetProgress>>((ref) {
   final limits = ref.watch(budgetLimitsProvider);
   if (limits.categoryLimitsPaise.isEmpty) return [];
 
-  final asyncTxs = ref.watch(transactionsStreamProvider);
+  final asyncTxs = ref.watch(allTransactionsStreamProvider);
   final catMap = ref.watch(categoryMapProvider);
 
   return asyncTxs.when(
     data: (txs) {
-      final monthExpenses = BudgetService.filterCurrentMonthExpenses(txs);
+      final monthExpenses = BudgetService.filterCurrentMonthExpenses(txs, includeSplits: true);
       final list = <BudgetProgress>[];
       for (final entry in limits.categoryLimitsPaise.entries) {
         list.add(

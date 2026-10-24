@@ -64,8 +64,7 @@ class CalculatorNumpad extends StatelessWidget {
 
   void _evaluateMath() {
     try {
-      final sanitized = currentValue.replaceAll('×', '*').replaceAll('÷', '/');
-      final result = _simpleEvaluate(sanitized);
+      final result = evaluate(currentValue);
       if (result != null) {
         // Format to max 2 decimal places
         if (result == result.roundToDouble()) {
@@ -77,38 +76,44 @@ class CalculatorNumpad extends StatelessWidget {
     } catch (_) {}
   }
 
-  double? _simpleEvaluate(String expr) {
-    final tokens = <String>[];
-    String currentNum = '';
+  /// Evaluates an arithmetic expression string safely with left-to-right precedence
+  static double? evaluate(String expr) {
+    try {
+      final sanitized = expr.replaceAll('×', '*').replaceAll('÷', '/');
+      final tokens = <String>[];
+      String currentNum = '';
 
-    for (int i = 0; i < expr.length; i++) {
-      final char = expr[i];
-      if (['+', '-', '*', '/'].contains(char)) {
-        if (currentNum.isNotEmpty) {
-          tokens.add(currentNum);
-          currentNum = '';
+      for (int i = 0; i < sanitized.length; i++) {
+        final char = sanitized[i];
+        if (['+', '-', '*', '/'].contains(char)) {
+          if (currentNum.isNotEmpty) {
+            tokens.add(currentNum);
+            currentNum = '';
+          }
+          tokens.add(char);
+        } else {
+          currentNum += char;
         }
-        tokens.add(char);
-      } else {
-        currentNum += char;
       }
-    }
-    if (currentNum.isNotEmpty) tokens.add(currentNum);
-    if (tokens.isEmpty) return null;
+      if (currentNum.isNotEmpty) tokens.add(currentNum);
+      if (tokens.isEmpty) return null;
 
-    double total = double.tryParse(tokens[0]) ?? 0;
-    for (int i = 1; i < tokens.length; i += 2) {
-      if (i + 1 >= tokens.length) break;
-      final op = tokens[i];
-      final nextNum = double.tryParse(tokens[i + 1]) ?? 0;
-      if (op == '+') total += nextNum;
-      if (op == '-') total -= nextNum;
-      if (op == '*') total *= nextNum;
-      if (op == '/') {
-        if (nextNum != 0) total /= nextNum;
+      double total = double.tryParse(tokens[0]) ?? 0;
+      for (int i = 1; i < tokens.length; i += 2) {
+        if (i + 1 >= tokens.length) break;
+        final op = tokens[i];
+        final nextNum = double.tryParse(tokens[i + 1]) ?? 0;
+        if (op == '+') total += nextNum;
+        if (op == '-') total -= nextNum;
+        if (op == '*') total *= nextNum;
+        if (op == '/') {
+          if (nextNum != 0) total /= nextNum;
+        }
       }
+      return total;
+    } catch (_) {
+      return null;
     }
-    return total;
   }
 
   @override

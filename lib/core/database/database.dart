@@ -43,9 +43,22 @@ class AppDatabase extends _$AppDatabase {
     return update(accounts).replace(account);
   }
 
-  // Delete account by ID
-  Future<int> deleteAccount(int accountId) {
-    return (delete(accounts)..where((a) => a.id.equals(accountId))).go();
+  // Delete account by ID with complete cascade safeguard
+  Future<void> deleteAccount(int accountId) async {
+    await transaction(() async {
+      // 1. Delete all transactions belonging to this account (deleteTransactionById cascades transfer peers & splits)
+      final txs = await (select(transactions)..where((t) => t.accountId.equals(accountId))).get();
+      for (final tx in txs) {
+        await deleteTransactionById(tx.id);
+      }
+      // 2. Delete any remaining transfer transactions pointing to this account as transferAccount
+      final transferTxs = await (select(transactions)..where((t) => t.transferAccount.equals(accountId))).get();
+      for (final tx in transferTxs) {
+        await deleteTransactionById(tx.id);
+      }
+      // 3. Delete account itself
+      await (delete(accounts)..where((a) => a.id.equals(accountId))).go();
+    });
   }
 
   // --- Category Methods ---
@@ -70,7 +83,7 @@ class AppDatabase extends _$AppDatabase {
     return update(categories).replace(entry);
   }
 
-  // Delete category with cascade safeguard (unlinks child categories and transactions)
+  // Delete category with cascade safeguard (unlinks child categories, transactions, and budget setting)
   Future<void> deleteCategory(int categoryId) async {
     await transaction(() async {
       // 1. Unlink child categories (set parentId = null)
@@ -81,7 +94,9 @@ class AppDatabase extends _$AppDatabase {
       await (update(transactions)..where((t) => t.catId.equals(categoryId))).write(
         const TransactionsCompanion(catId: Value(null)),
       );
-      // 3. Delete category itself
+      // 3. Delete category budget limit setting if set
+      await (delete(appSettings)..where((s) => s.key.equals('budget_cat_$categoryId'))).go();
+      // 4. Delete category itself
       await (delete(categories)..where((c) => c.id.equals(categoryId))).go();
     });
   }

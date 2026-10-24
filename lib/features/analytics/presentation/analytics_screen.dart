@@ -14,7 +14,7 @@ class AnalyticsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final selectedTimeframe = ref.watch(analyticsTimeframeProvider);
-    final transactionsAsync = ref.watch(transactionsStreamProvider);
+    final transactionsAsync = ref.watch(allTransactionsStreamProvider);
     final categoryMap = ref.watch(categoryMapProvider);
 
     return Scaffold(

@@ -55,10 +55,11 @@ class CashFlowSummary {
 }
 
 class AnalyticsService {
-  /// Filter transactions according to selected timeframe (excluding transfer peers and parent split duplicates)
+  /// Filter transactions according to selected timeframe (excluding transfer peers and optionally split children)
   static List<Transaction> filterTransactions(
     List<Transaction> transactions,
     AnalyticsTimeframe timeframe, {
+    bool includeSplits = true,
     DateTime? referenceNow,
   }) {
     final now = referenceNow ?? DateTime.now();
@@ -80,9 +81,7 @@ class AnalyticsService {
     }
 
     return transactions.where((t) {
-      // Exclude split children (if queried with all txs) or transfer destination duplicates if needed
-      // If parentId is not null, it's a split child; parent has total amount
-      if (t.parentId != null) return false;
+      if (!includeSplits && t.parentId != null) return false;
       if (startDate != null && t.date.isBefore(startDate)) return false;
       return true;
     }).toList();
@@ -93,10 +92,18 @@ class AnalyticsService {
     required List<Transaction> transactions,
     required Map<int, Category> categoriesMap,
   }) {
+    final hasChildSplits = transactions.any((t) => t.parentId != null);
+
     // Only consider expenses (amount < 0) and not transfers
     final expenseTxs = transactions.where((t) {
       final isTransfer = t.transferAccount != null || t.transferPeer != null;
-      return t.amount < 0 && !isTransfer;
+      if (isTransfer) return false;
+      if (t.amount >= 0) return false;
+      // If child split allocations exist in the list, skip split parents (status == 1) so child allocations are counted
+      if (hasChildSplits && t.status == 1) return false;
+      // If child split allocations do NOT exist in the list, skip split children
+      if (!hasChildSplits && t.parentId != null) return false;
+      return true;
     }).toList();
 
     if (expenseTxs.isEmpty) return [];

@@ -29,6 +29,7 @@ class TransactionDetailSheet extends ConsumerWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isExpense = transaction.amount < 0;
     final isTransfer = transaction.transferAccount != null || transaction.transferPeer != null;
+    final categoryMap = ref.watch(categoryMapProvider);
 
     final Color statusColor = isTransfer
         ? AppColors.transfer
@@ -194,17 +195,34 @@ class TransactionDetailSheet extends ConsumerWidget {
                       padding: const EdgeInsets.all(12),
                       child: Column(
                         children: splits.map((s) {
+                          final childCat = s.catId != null ? categoryMap[s.catId] : null;
                           return Padding(
                             padding: const EdgeInsets.symmetric(vertical: 4),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(
-                                  s.comment ?? 'Split item',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        s.comment ?? 'Split item',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                                        ),
+                                      ),
+                                      if (childCat != null)
+                                        Text(
+                                          childCat.label,
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w500,
+                                            color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                                          ),
+                                        ),
+                                    ],
                                   ),
                                 ),
                                 Text(
@@ -302,6 +320,32 @@ class TransactionDetailSheet extends ConsumerWidget {
           amountPaise: transaction.amount.abs(),
           date: DateTime.now(),
           comment: transaction.comment != null ? '${transaction.comment!} (Copy)' : 'Transfer (Copy)',
+        );
+      } else if (transaction.status == 1) {
+        final children = await db.getSplitsForParent(transaction.id);
+        final parentCompanion = TransactionsCompanion.insert(
+          amount: transaction.amount,
+          accountId: transaction.accountId,
+          date: DateTime.now(),
+          valueDate: DateTime.now(),
+          comment: drift.Value(transaction.comment != null ? '${transaction.comment!} (Copy)' : 'Split Transaction (Copy)'),
+          status: const drift.Value(1),
+          payeeId: drift.Value(transaction.payeeId),
+          methodId: drift.Value(transaction.methodId),
+        );
+        final splitCompanions = children.map((c) => TransactionsCompanion.insert(
+          amount: c.amount,
+          accountId: c.accountId,
+          date: DateTime.now(),
+          valueDate: DateTime.now(),
+          comment: drift.Value(c.comment != null ? '${c.comment!} (Copy)' : 'Split Item (Copy)'),
+          catId: drift.Value(c.catId),
+          payeeId: drift.Value(c.payeeId),
+          methodId: drift.Value(c.methodId),
+        )).toList();
+        await db.createSplitTransaction(
+          parent: parentCompanion,
+          splits: splitCompanions,
         );
       } else {
         await db.createTransaction(

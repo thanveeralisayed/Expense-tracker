@@ -100,7 +100,8 @@ class _CreateAccountDialogState extends ConsumerState<CreateAccountDialog> {
     try {
       if (widget.initialAccount != null) {
         // Edit existing
-        final updated = widget.initialAccount!.copyWith(
+        final initialAcc = widget.initialAccount!;
+        final updated = initialAcc.copyWith(
           label: name,
           currency: _selectedCurrency,
           openingBalance: openingBalancePaise,
@@ -108,6 +109,39 @@ class _CreateAccountDialogState extends ConsumerState<CreateAccountDialog> {
           color: _selectedColor,
         );
         await db.updateAccount(updated);
+
+        // Synchronize opening balance transaction if balance changed
+        final existingOpeningTx = await (db.select(db.transactions)
+              ..where((t) =>
+                  t.accountId.equals(initialAcc.id) &
+                  t.parentId.isNull() &
+                  t.transferAccount.isNull() &
+                  t.transferPeer.isNull() &
+                  (t.comment.like('Opening Balance%') | t.comment.like('opening balance%'))))
+            .getSingleOrNull();
+
+        if (openingBalancePaise != 0) {
+          if (existingOpeningTx != null) {
+            await db.updateTransaction(
+              existingOpeningTx.copyWith(
+                amount: openingBalancePaise,
+              ),
+            );
+          } else {
+            await db.createTransaction(
+              TransactionsCompanion.insert(
+                accountId: initialAcc.id,
+                amount: openingBalancePaise,
+                date: DateTime.now(),
+                valueDate: DateTime.now(),
+                comment: const drift.Value('Opening Balance'),
+              ),
+            );
+          }
+        } else if (existingOpeningTx != null) {
+          await db.deleteTransactionById(existingOpeningTx.id);
+        }
+
         if (mounted) {
           Navigator.pop(context, updated);
           ScaffoldMessenger.of(context).showSnackBar(
@@ -180,6 +214,49 @@ class _CreateAccountDialogState extends ConsumerState<CreateAccountDialog> {
     }
   }
 
+  Future<void> _confirmDelete() async {
+    final account = widget.initialAccount;
+    if (account == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Account?'),
+        content: Text(
+          'Are you sure you want to delete "${account.label}"? All transactions and transfers associated with this account will also be permanently deleted.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.expense),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      final db = ref.read(databaseProvider);
+      if (ref.read(selectedAccountIdProvider) == account.id) {
+        ref.read(selectedAccountIdProvider.notifier).state = null;
+      }
+      await db.deleteAccount(account.id);
+      if (mounted) {
+        Navigator.pop(context, null);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.expense,
+            content: Text('Account "${account.label}" deleted'),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -218,12 +295,18 @@ class _CreateAccountDialogState extends ConsumerState<CreateAccountDialog> {
 
               // Title
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
                     isEdit ? 'Edit Account' : 'Create New Account',
                     style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
                   ),
+                  const Spacer(),
+                  if (isEdit)
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline_rounded, color: AppColors.expense),
+                      tooltip: 'Delete Account',
+                      onPressed: _confirmDelete,
+                    ),
                   IconButton(
                     icon: const Icon(Icons.close_rounded),
                     onPressed: () => Navigator.pop(context),

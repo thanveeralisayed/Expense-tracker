@@ -250,7 +250,7 @@ class SettingsScreen extends ConsumerWidget {
                             ),
                             SizedBox(height: 2),
                             Text(
-                              'Version 1.0.0 (Phase 5 Build)',
+                              'Version 1.0.0 (Phase 6 Build)',
                               style: TextStyle(fontSize: 12, color: Colors.grey),
                             ),
                           ],
