@@ -273,8 +273,9 @@ class _CreateAccountDialogState extends ConsumerState<CreateAccountDialog> {
                 children: [
                   // Currency Dropdown
                   SizedBox(
-                    width: 100,
+                    width: 125,
                     child: DropdownButtonFormField<String>(
+                      isExpanded: true,
                       value: _selectedCurrency,
                       decoration: InputDecoration(
                         labelText: 'Currency',

@@ -36,7 +36,7 @@ class CalculatorNumpad extends StatelessWidget {
         onChanged('0.');
         return;
       }
-      final parts = currentValue.split(RegExp(r'[\+\-\*\/]'));
+      final parts = currentValue.split(RegExp(r'[\+\-\×\÷\*/]'));
       if (!parts.last.contains('.')) {
         onChanged('$currentValue.');
       }
