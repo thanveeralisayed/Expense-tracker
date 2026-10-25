@@ -200,7 +200,7 @@ class SettingsScreen extends ConsumerWidget {
                     title: const Text('Export to CSV Spreadsheet', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                     subtitle: const Text('Export all transaction records to CSV file', style: TextStyle(fontSize: 12)),
                     trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: () => _exportCsv(context, ref),
+                    onTap: () => _showExportCsvOptions(context, ref),
                   ),
 
                   Divider(height: 1, color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
@@ -219,7 +219,7 @@ class SettingsScreen extends ConsumerWidget {
                     title: const Text('Export Full Backup (.zip)', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                     subtitle: const Text('Save accounts, categories, and settings as archive', style: TextStyle(fontSize: 12)),
                     trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: () => _exportFullBackup(context, ref),
+                    onTap: () => _showExportBackupOptions(context, ref),
                   ),
 
                   Divider(height: 1, color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
@@ -373,14 +373,168 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _exportCsv(BuildContext context, WidgetRef ref) async {
+  void _showExportCsvOptions(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetCtx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.table_chart_rounded, color: AppColors.primary, size: 24),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Export Transactions to CSV',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Choose where you would like to save your CSV spreadsheet (.csv):',
+                style: TextStyle(fontSize: 13, color: Colors.grey),
+              ),
+              const SizedBox(height: 20),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: CircleAvatar(
+                  backgroundColor: AppColors.primary.withOpacity(0.15),
+                  child: const Icon(Icons.drive_folder_upload_rounded, color: AppColors.primary),
+                ),
+                title: const Text('Save to Phone Storage (Select Location)', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                subtitle: const Text('Choose any folder in internal memory (Downloads, Documents, etc.)', style: TextStyle(fontSize: 12)),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () {
+                  Navigator.pop(sheetCtx);
+                  _exportCsvWithPicker(context, ref);
+                },
+              ),
+              const Divider(height: 24),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: CircleAvatar(
+                  backgroundColor: const Color(0xFF64748B).withOpacity(0.15),
+                  child: const Icon(Icons.inventory_2_rounded, color: Color(0xFF64748B)),
+                ),
+                title: const Text('Save to App Data Folder', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                subtitle: const Text('Store inside the app\'s internal documents folder', style: TextStyle(fontSize: 12)),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () {
+                  Navigator.pop(sheetCtx);
+                  _exportCsvToAppFolder(context, ref);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showExportBackupOptions(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetCtx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF3B82F6).withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.archive_rounded, color: Color(0xFF3B82F6), size: 24),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Export Full Backup',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Choose where you would like to save your backup archive (.zip):',
+                style: TextStyle(fontSize: 13, color: Colors.grey),
+              ),
+              const SizedBox(height: 20),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: CircleAvatar(
+                  backgroundColor: AppColors.primary.withOpacity(0.15),
+                  child: const Icon(Icons.drive_folder_upload_rounded, color: AppColors.primary),
+                ),
+                title: const Text('Save to Phone Storage (Select Location)', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                subtitle: const Text('Choose any folder in internal memory (Downloads, Documents, etc.)', style: TextStyle(fontSize: 12)),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () {
+                  Navigator.pop(sheetCtx);
+                  _exportFullBackupWithPicker(context, ref);
+                },
+              ),
+              const Divider(height: 24),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: CircleAvatar(
+                  backgroundColor: const Color(0xFF64748B).withOpacity(0.15),
+                  child: const Icon(Icons.inventory_2_rounded, color: Color(0xFF64748B)),
+                ),
+                title: const Text('Save to App Data Folder', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                subtitle: const Text('Store inside the app\'s internal documents folder', style: TextStyle(fontSize: 12)),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () {
+                  Navigator.pop(sheetCtx);
+                  _exportFullBackupToAppFolder(context, ref);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _exportCsvWithPicker(BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.of(context);
     final db = ref.read(databaseProvider);
     final service = ExportService(db);
-    final result = await service.exportTransactionsToCsv();
+    final result = await service.exportCsvWithPicker();
 
-    if (!context.mounted) return;
+    if (result.isCancelled) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('CSV export cancelled.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
     if (result.success) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(
           backgroundColor: AppColors.incomeGreen,
           content: Text('Exported ${result.recordCount} transactions to CSV!\n${result.filePath}'),
@@ -388,7 +542,7 @@ class SettingsScreen extends ConsumerWidget {
         ),
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(
           backgroundColor: AppColors.expenseRed,
           content: Text(result.errorMessage ?? 'CSV Export failed'),
@@ -397,22 +551,80 @@ class SettingsScreen extends ConsumerWidget {
     }
   }
 
-  Future<void> _exportFullBackup(BuildContext context, WidgetRef ref) async {
+  Future<void> _exportCsvToAppFolder(BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.of(context);
     final db = ref.read(databaseProvider);
     final service = ExportService(db);
-    final result = await service.createFullBackupZip();
+    final result = await service.exportTransactionsToCsv();
 
-    if (!context.mounted) return;
     if (result.success) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(
           backgroundColor: AppColors.incomeGreen,
-          content: Text('Backup archive created successfully!\n${result.filePath}'),
+          content: Text('Exported ${result.recordCount} transactions to CSV in app folder:\n${result.filePath}'),
           duration: const Duration(seconds: 4),
         ),
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.expenseRed,
+          content: Text(result.errorMessage ?? 'CSV Export failed'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _exportFullBackupWithPicker(BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final db = ref.read(databaseProvider);
+    final service = ExportService(db);
+    final result = await service.exportFullBackupWithPicker();
+
+    if (result.isCancelled) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Backup export cancelled.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    if (result.success) {
+      messenger.showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.incomeGreen,
+          content: Text('Backup archive saved successfully!\n${result.filePath}'),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    } else {
+      messenger.showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.expenseRed,
+          content: Text(result.errorMessage ?? 'Backup Export failed'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _exportFullBackupToAppFolder(BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final db = ref.read(databaseProvider);
+    final service = ExportService(db);
+    final result = await service.createFullBackupZip();
+
+    if (result.success) {
+      messenger.showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.incomeGreen,
+          content: Text('Backup archive created in app data folder:\n${result.filePath}'),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    } else {
+      messenger.showSnackBar(
         SnackBar(
           backgroundColor: AppColors.expenseRed,
           content: Text(result.errorMessage ?? 'Backup Export failed'),

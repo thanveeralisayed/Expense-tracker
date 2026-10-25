@@ -4,9 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
 import 'package:archive/archive.dart';
+import 'package:file_picker/file_picker.dart';
 
 import 'package:expense_tracker/core/database/database.dart';
 import 'package:expense_tracker/core/services/export_service.dart';
+import 'package:expense_tracker/core/services/backup_restore_service.dart';
 
 void main() {
   group('Phase 7 - ExportService CSV Formatting & Escaping Edge Cases', () {
@@ -237,5 +239,195 @@ void main() {
       expect(content, contains('-120.00'));
       expect(content, contains('Snacks'));
     });
+
+    test('generateFullBackupZipBytes returns valid in-memory zip bytes', () async {
+      final accId = await db.createAccount(
+        const AccountsCompanion(label: Value('Savings'), currency: Value('INR')),
+      );
+      await db.createTransaction(
+        TransactionsCompanion.insert(
+          accountId: accId,
+          amount: 500000,
+          date: DateTime.now(),
+          valueDate: DateTime.now(),
+        ),
+      );
+
+      final exportService = ExportService(db);
+      final generated = await exportService.generateFullBackupZipBytes();
+
+      expect(generated.bytes.isNotEmpty, isTrue);
+      expect(generated.recordCount, equals(1));
+
+      final archive = ZipDecoder().decodeBytes(generated.bytes);
+      expect(archive.files.length, equals(1));
+      expect(archive.files.first.name, equals('backup_data.json'));
+    });
+
+    test('createFullBackupZip saves directly to targetFilePath', () async {
+      final exactPath = '${tempDir.path}/custom_backup_location/my_backup.zip';
+      final exportService = ExportService(db);
+      final result = await exportService.createFullBackupZip(targetFilePath: exactPath);
+
+      expect(result.success, isTrue);
+      expect(result.filePath, equals(exactPath));
+      expect(await File(exactPath).exists(), isTrue);
+    });
+
+    test('exportFullBackupWithPicker saves backup anywhere user chooses via file picker', () async {
+      final chosenSavePath = '${tempDir.path}/phone_storage/Downloads/user_backup.zip';
+      final fakePicker = FakeFilePicker()..returnPath = chosenSavePath;
+
+      final exportService = ExportService(db);
+      final result = await exportService.exportFullBackupWithPicker(filePicker: fakePicker);
+
+      expect(result.success, isTrue);
+      expect(result.isCancelled, isFalse);
+      expect(result.filePath, equals(chosenSavePath));
+      expect(fakePicker.lastSavedBytes, isNotNull);
+      expect(await File(chosenSavePath).exists(), isTrue);
+    });
+
+    test('exportFullBackupWithPicker handles user cancellation cleanly', () async {
+      final fakePicker = FakeFilePicker()..returnPath = null; // user cancelled
+
+      final exportService = ExportService(db);
+      final result = await exportService.exportFullBackupWithPicker(filePicker: fakePicker);
+
+      expect(result.success, isFalse);
+      expect(result.isCancelled, isTrue);
+      expect(result.errorMessage, contains('cancelled'));
+    });
+
+    test('exportCsvWithPicker saves CSV anywhere user chooses via file picker', () async {
+      final chosenCsvPath = '${tempDir.path}/phone_storage/Documents/user_transactions.csv';
+      final fakePicker = FakeFilePicker()..returnPath = chosenCsvPath;
+
+      final exportService = ExportService(db);
+      final result = await exportService.exportCsvWithPicker(filePicker: fakePicker);
+
+      expect(result.success, isTrue);
+      expect(result.isCancelled, isFalse);
+      expect(result.filePath, equals(chosenCsvPath));
+      expect(fakePicker.lastSavedBytes, isNotNull);
+      expect(await File(chosenCsvPath).exists(), isTrue);
+    });
+
+    test('exportCsvWithPicker handles user cancellation cleanly', () async {
+      final fakePicker = FakeFilePicker()..returnPath = null; // user cancelled
+
+      final exportService = ExportService(db);
+      final result = await exportService.exportCsvWithPicker(filePicker: fakePicker);
+
+      expect(result.success, isFalse);
+      expect(result.isCancelled, isTrue);
+      expect(result.errorMessage, contains('cancelled'));
+    });
+
+    test('Full Round-Trip: createFullBackupZip archive is restorable by BackupRestoreService', () async {
+      // 1. Insert seed data
+      final accId = await db.createAccount(
+        const AccountsCompanion(label: Value('HDFC Bank'), currency: Value('INR')),
+      );
+      final catId = await db.createCategory(
+        const CategoriesCompanion(label: Value('Utilities'), type: Value(0)),
+      );
+      final payeeId = await db.createPayee(
+        const PayeesCompanion(name: Value('Electricity Board')),
+      );
+      await db.createTransaction(
+        TransactionsCompanion.insert(
+          accountId: accId,
+          catId: Value(catId),
+          payeeId: Value(payeeId),
+          amount: -350000, // -₹3,500.00
+          date: DateTime.now(),
+          valueDate: DateTime.now(),
+          comment: const Value('Monthly Power Bill'),
+        ),
+      );
+
+      // 2. Export full backup zip
+      final exportPath = '${tempDir.path}/full_roundtrip_backup.zip';
+      final exportService = ExportService(db);
+      final exportRes = await exportService.createFullBackupZip(targetFilePath: exportPath);
+      expect(exportRes.success, isTrue);
+
+      // 3. Create a fresh clean database and restore from the exported zip
+      final freshDb = AppDatabase(NativeDatabase.memory());
+      try {
+        final restoreService = BackupRestoreService(freshDb);
+        final restoreRes = await restoreService.restoreBackup(exportPath);
+
+        expect(restoreRes.success, isTrue);
+        expect(restoreRes.accountsCount, equals(1));
+        expect(restoreRes.categoriesCount, equals(1));
+        expect(restoreRes.payeesCount, equals(1));
+        expect(restoreRes.transactionsCount, equals(1));
+        expect(restoreRes.totalExpenses, equals(350000));
+
+        // Verify data in freshDb
+        final restoredAccounts = await freshDb.getAllAccounts();
+        expect(restoredAccounts.first.label, equals('HDFC Bank'));
+        final restoredCategories = await freshDb.getAllCategories();
+        expect(restoredCategories.first.label, equals('Utilities'));
+        final restoredTxs = await freshDb.select(freshDb.transactions).get();
+        expect(restoredTxs.first.comment, equals('Monthly Power Bill'));
+      } finally {
+        await freshDb.close();
+      }
+    });
   });
+}
+
+class FakeFilePicker extends FilePicker {
+  String? returnPath;
+  String? lastFileName;
+  Uint8List? lastSavedBytes;
+
+  @override
+  Future<String?> saveFile({
+    String? dialogTitle,
+    String? fileName,
+    String? initialDirectory,
+    FileType type = FileType.any,
+    List<String>? allowedExtensions,
+    Uint8List? bytes,
+    bool lockParentWindow = false,
+  }) async {
+    lastFileName = fileName;
+    lastSavedBytes = bytes;
+    if (returnPath != null && bytes != null) {
+      final f = File(returnPath!);
+      await f.parent.create(recursive: true);
+      await f.writeAsBytes(bytes);
+    }
+    return returnPath;
+  }
+
+  @override
+  Future<FilePickerResult?> pickFiles({
+    String? dialogTitle,
+    String? initialDirectory,
+    FileType type = FileType.any,
+    List<String>? allowedExtensions,
+    dynamic onFileLoading,
+    bool allowCompression = true,
+    int compressionQuality = 30,
+    bool allowMultiple = false,
+    bool withData = false,
+    bool withReadStream = false,
+    bool lockParentWindow = false,
+    bool readSequential = false,
+  }) async => null;
+
+  @override
+  Future<bool?> clearTemporaryFiles() async => true;
+
+  @override
+  Future<String?> getDirectoryPath({
+    String? dialogTitle,
+    bool lockParentWindow = false,
+    String? initialDirectory,
+  }) async => null;
 }
